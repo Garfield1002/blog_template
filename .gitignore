@@ -1,0 +1,16 @@
+# Build output — tracked for GitHub Pages deployment
+# out/
+
+# Sensitive key material
+security/users.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local development tooling
+.env
+.devcontainer/
+.claude/

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none';">
+  <title>architecture</title>
+  <style>
+    body { max-width:720px; margin:0 auto; padding:2rem 1rem; font-family:system-ui,sans-serif; line-height:1.6; color:#1a1a1a; }
+    pre { background:#f5f5f5; padding:1rem; overflow-x:auto; }
+    code { font-size:0.9em; }
+    a { color:#2563eb; }
+  </style>
+</head>
+<body>
+<h1>How does this website work ?</h1>
+<p>A fully static semi-private blog — how's that possible ?</p>
+<p>If you've talked to me for 5 minutes, you know that obfuscation is not the way to go, so how do you protect content in the <a href="">man at the end situation</a> ?
+Well, technically we aren't in a man-at-the-end situation, if you're reading this it means that I trust you, that someone betrayed my trust or that this is all broken.</p>
+<p>Security through obscurity is the worst kind of security, therefore I should be able to share the technical details of the site without compromising its security.</p>
+<h2>What this protects against</h2>
+<p>This is designed to stop random visitors, crawlers, search engines, and people browsing the static files from reading private posts.</p>
+<h2>Why not just use a login?</h2>
+<p>A normal login requires a backend that decides who can read what.
+I wanted the site to stay fully static, free to host, and easy to archive.</p>
+<p>The tradeoff is that access control can't be done by a server, which makes it harder (or more interesting).</p>
+<h2>Encryption</h2>
+<p>The solution is to encrypt the blog.
+The server only hosts encrypted blobs.</p>
+<p>Each post is encrypted with AES-256-GCM using a random Data Encryption Key (DEK).</p>
+<h3>The key needs to come from somewhere</h3>
+<p>White-box-cryptography (hiding the key in the distributed code), is broken.
+It's a form of obfuscation, and as such attackers will always win.</p>
+<p>But if the key isn't in the code where is it ?</p>
+<p>Each user is sent a one-time URL with a 256-bit AES key (generated from 32 random bytes, base64url-encoded).</p>
+<p>The user's key encrypts their per-user manifest and their per-user index page.</p>
+<h3>User identity</h3>
+<p>Users are identified by a random 16-character hex string (64 bits of entropy). Sequential integers were used in early prototypes; random strings prevent trivial enumeration of users and their manifests.</p>
+<h3>Manifest</h3>
+<p>Each user has a manifest stored at <code>/users/&lt;uid&gt;/info.enc</code>.</p>
+<p>The manifest is encrypted with the user's AES-256 key using AES-256-GCM (random 96-bit nonce).</p>
+<p>When decrypted, the manifest contains a mapping of post slugs to raw DEKs:</p>
+<pre><code class="language-json">{
+  &quot;posts&quot;: {
+    &quot;a1b2c3d4e5f6&quot;: &quot;&lt;base64url-encoded-32-byte-DEK&gt;&quot;,
+    &quot;7890abcdef12&quot;: &quot;&lt;base64url-encoded-32-byte-DEK&gt;&quot;
+  }
+}
+</code></pre>
+<h3>Per-user index page</h3>
+<p>Each user also has an encrypted index page at <code>/users/&lt;uid&gt;/index.enc</code>.</p>
+<p>This is an HTML fragment rendered at build time (Jinja2), encrypted with the user's key. It contains a greeting and a list of links to the user's accessible posts. Like the manifest, it is decrypted client-side via the Web Crypto API.</p>
+<h3>Posts</h3>
+<p>Each post lives at <code>/posts/&lt;slug&gt;.enc</code>. Slugs are random 12-character hex strings — they are not derived from the post filename or title. This prevents guessing post URLs.</p>
+<p>Each post is encrypted with its own random DEK using AES-256-GCM (random 96-bit nonce).
+When decrypted, the blob yields the post's raw HTML.</p>
+<h3>Binary format</h3>
+<p>Both user manifests, index pages, and post blobs use the same on-disk format:</p>
+<pre><code>[12 bytes: random nonce] [variable: ciphertext + 16 bytes: GCM auth tag]
+</code></pre>
+<h3>Flow</h3>
+<ol>
+<li>You receive a one-time link: <code>https://example.com/login#key=&lt;base64url-key&gt;&amp;uid=&lt;16-char-hex&gt;</code></li>
+<li>The <code>/login/</code> page loads <code>auth.js</code>, which parses the fragment, sets <code>__Host-key</code> and <code>__Host-uid</code> cookies (Secure, SameSite=Lax, 1 year, path=/), then redirects to <code>/</code>.</li>
+<li>The root page (<code>/</code>) loads <code>index.js</code>, which reads the cookies, fetches <code>/users/&lt;uid&gt;/index.enc</code>, decrypts it with your key, and injects the HTML — showing a greeting and a list of posts you can access.</li>
+<li>When you click a post link (<code>/post/?id=&lt;slug&gt;</code>), the browser fetches <code>/users/&lt;uid&gt;/info.enc</code> (the manifest), decrypts it, looks up the DEK for the slug, fetches <code>/posts/&lt;slug&gt;.enc</code>, and decrypts it.</li>
+<li>If decryption fails (wrong key, missing manifest, corrupted data), the GCM auth tag won't verify — the user is redirected to <code>/unauthorized/</code>.</li>
+</ol>
+<h3>Why ephemeral DEKs?</h3>
+<p>DEKs are regenerated on every build and never stored on disk. This avoids a DEK store that could be exfiltrated. The cost is re-encrypting all posts on every publish, which for a personal blog is negligible.</p>
+<h2>Threat model</h2>
+<h3>In scope</h3>
+<ul>
+<li>Random visitors and crawlers cannot read posts.</li>
+<li>Post slugs are random (unguessable), and user IDs are random — enumeration is infeasible.</li>
+<li>The access graph (who can read what) is hidden inside encrypted manifests.</li>
+<li>An attacker who obtains a user's key can read that user's posts and nothing more.</li>
+<li>The root page, index pages, and post pages are all encrypted blobs or shells — without a key, nothing is revealed.</li>
+</ul>
+<h3>Out of scope</h3>
+<ul>
+<li>A user who shares their key or decrypted content.</li>
+<li>A user who saves or copies decrypted content.</li>
+<li>Cross-device support for v1 (new device = need the one-time link again).</li>
+<li>Physical or endpoint compromise of the publisher's laptop.</li>
+</ul>
+<h2>Access control</h2>
+<p>Post access is specified via frontmatter in the Markdown source:</p>
+<pre><code class="language-markdown">---
+access: [&quot;14a63cfbf7677a4c&quot;, &quot;c12819fcd1af678d&quot;]
+title: My Post
+date: 2025-06-21
+---
+
+# Hello world
+</code></pre>
+<p>The <code>access</code> list contains user IDs (16-char hex strings). Only listed users receive the post's DEK in their manifest and see it in their index.</p>
+<h2>Pages</h2>
+<table>
+<thead>
+<tr>
+  <th>Path</th>
+  <th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>/</code></td>
+  <td>Root — authenticated users see their encrypted post index</td>
+</tr>
+<tr>
+  <td><code>/login#key=...&amp;uid=...</code></td>
+  <td>One-time link landing page</td>
+</tr>
+<tr>
+  <td><code>/login/</code></td>
+  <td>Stripped-fragment redirect target (handled by auth.js)</td>
+</tr>
+<tr>
+  <td><code>/logout/</code></td>
+  <td>Clears key and uid cookies, redirects to <code>/</code></td>
+</tr>
+<tr>
+  <td><code>/post/?id=&lt;slug&gt;</code></td>
+  <td>Individual encrypted post</td>
+</tr>
+<tr>
+  <td><code>/unauthorized/</code></td>
+  <td>Shown when not authenticated or decryption fails</td>
+</tr>
+<tr>
+  <td><code>/arch.html</code></td>
+  <td>This document (public)</td>
+</tr>
+</tbody>
+</table>
+<h2>Adding a user</h2>
+<p>Script: <code>./scripts/add-user.py &lt;name&gt;</code></p>
+<ul>
+<li>Generates a random 256-bit key (32 bytes, base64url-encoded).</li>
+<li>Generates a random 16-character hex user ID (64 bits of entropy).</li>
+<li>Appends to <code>security/users.csv</code> (name, uid, key_b64, login_url).</li>
+<li>Prints the one-time link (<code>/login#key=...&amp;uid=...</code>).</li>
+</ul>
+<h2>Revoking a user</h2>
+<p>Script: <code>./scripts/revoke-user.py &lt;uid&gt;</code></p>
+<ul>
+<li>Removes the user from <code>security/users.csv</code>.</li>
+<li>Triggers a full rebuild: regenerates all DEKs, re-encrypts all posts, rebuilds every remaining user's manifest and index page.</li>
+<li>Deploys to a clean output directory — the revoked user's manifest and index are not generated, so they disappear from the static host.</li>
+</ul>
+<h2>Rebuilding after a post change</h2>
+<p>Script: <code>./scripts/publish.py</code></p>
+<ul>
+<li>Parses all Markdown posts, reads access frontmatter and titles.</li>
+<li>For each post: generates a random 12-char hex slug, generates a new random DEK, encrypts the HTML.</li>
+<li>For each authorized user: embeds the raw DEK in their manifest.</li>
+<li>Renders a per-user index page (Jinja2) with the user's name and post links, encrypts it.</li>
+<li>Encrypts each user's manifest with that user's key.</li>
+<li>Converts <code>architecture.md</code> to <code>/arch.html</code> (public).</li>
+<li>Writes all <code>.enc</code> files, static assets, and pages to a clean output directory.</li>
+<li>Output directory replaces the previous deployment (no stale files).</li>
+</ul>
+<h2>What if you share your key?</h2>
+<p>Shame on you!</p>
+<p>In this situation, the scheme cannot help.
+Anyone who has a user's key can decrypt that user's manifest and index and read all posts that user can access.</p>
+<p>I don't stop you from doing it though, so this part relies on the honor system.</p>
+<h2>What if someone loses their key?</h2>
+<p>Their old <code>.enc</code> manifest and index are no longer deployed after the next rebuild. They can't read new posts.</p>
+<p>For already-published content, if they cached their manifest, index, and the post blobs, they can still read them. This is inherent to a static scheme — there is no server to check freshness.</p>
+<h2>Crypto stack</h2>
+<table>
+<thead>
+<tr>
+  <th>Parameter</th>
+  <th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Cipher</td>
+  <td>AES-256-GCM</td>
+</tr>
+<tr>
+  <td>Key size</td>
+  <td>256 bits (32 bytes)</td>
+</tr>
+<tr>
+  <td>Nonce / IV</td>
+  <td>96 bits (12 bytes), random per encryption</td>
+</tr>
+<tr>
+  <td>Auth tag</td>
+  <td>128 bits (16 bytes), appended to ciphertext</td>
+</tr>
+<tr>
+  <td>Key encoding</td>
+  <td>Unpadded base64url (RFC 4648 §5)</td>
+</tr>
+<tr>
+  <td>Client API</td>
+  <td>Web Crypto API (<code>crypto.subtle</code>)</td>
+</tr>
+<tr>
+  <td>Python lib</td>
+  <td><code>cryptography.hazmat.primitives.ciphers.aead.AESGCM</code></td>
+</tr>
+</tbody>
+</table>
+<p>No KDF. No key wrapping. Raw 256-bit keys used directly — the key is already a random 256-bit string; adding PBKDF2 would only burn CPU for no security gain.</p>
+<h2>CSP</h2>
+<p>All pages ship a strict Content Security Policy via <code>&lt;meta&gt;</code> tag:</p>
+<pre><code>default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'
+</code></pre>
+<p>No inline scripts, no external resources, no CDNs. All JS is external (<code>&lt;script src=&quot;...&quot;&gt;</code>). Styles are external stylesheets. Fetch requests are same-origin only.</p>
+
+</body>
+</html>

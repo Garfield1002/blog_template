@@ -1,0 +1,4 @@
+cryptography>=41.0.0
+Jinja2>=3.0
+mistune>=3.0.0
+PyYAML>=6.0
