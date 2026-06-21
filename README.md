@@ -73,7 +73,7 @@ python scripts/publish.py     # rebuild — revoked user's files are gone
 > **Demo keys only.** The credentials below are published intentionally so visitors can explore the blog.
 > In a real deployment, these onboarding URLs would be sent privately to each user.
 
-[Alice](https://garfield1002.github.io/blog_template/login#key=tjBwKZwLI-TMhTlB_NxNox7PFs9KIS1YPoiULZuZ2KM&uid=14a63cfbf7677a4c) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=e1c02e23a6282931), [Private Note](https://garfield1002.github.io/blog_template/post/?id=12d87a75f62532b6)
-[Bob](https://garfield1002.github.io/blog_template/login#key=RN71uk2qUwqfX7Yi82MD7xU4ngrVPTDK022nNgJD_VY&uid=c12819fcd1af678d) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=e1c02e23a6282931)
+[Alice](https://garfield1002.github.io/blog_template/login#key=tjBwKZwLI-TMhTlB_NxNox7PFs9KIS1YPoiULZuZ2KM&uid=14a63cfbf7677a4c) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=1710159de9b7de19), [Private Note](https://garfield1002.github.io/blog_template/post/?id=15151f63c09babb7)
+[Bob](https://garfield1002.github.io/blog_template/login#key=RN71uk2qUwqfX7Yi82MD7xU4ngrVPTDK022nNgJD_VY&uid=c12819fcd1af678d) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=1710159de9b7de19)
 
 [logout](https://garfield1002.github.io/blog_template/logout/)

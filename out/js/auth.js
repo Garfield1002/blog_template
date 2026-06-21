@@ -4,7 +4,7 @@
  * Reads key=...&uid=... from the URL fragment, stores them in localStorage,
  * and redirects to the clean URL (fragment stripped).
  *
- * Link format: https://example.com/login#key=<base64url>&uid=<hex>
+ * Link format: https://example.com/login.html#key=<base64url>&uid=<hex>
  */
 
 (function () {

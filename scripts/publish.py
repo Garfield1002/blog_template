@@ -40,6 +40,15 @@ POSTS_DIR = BASE_DIR / "posts"
 USERS_CSV = BASE_DIR / "security" / "users.csv"
 OUT_DIR = BASE_DIR / "out"
 
+# Content-Security-Policy used by every page.  Single source of truth — update
+# here and all pages (both static .html and Jinja2-rendered) stay in sync.
+CSP = (
+    "default-src 'none'; script-src 'self'; style-src 'self'; "
+    "connect-src 'self'; img-src data:; "
+    "base-uri 'none'; object-src 'none'; "
+    "form-action 'none'; frame-ancestors 'none';"
+)
+
 
 def base64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
@@ -103,6 +112,75 @@ def inject_sri(html_path: Path) -> None:
     html_path.write_text(html, encoding="utf-8")
 
 
+# Map file extensions to MIME types for image embedding.
+_IMG_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+}
+
+_IMG_TAG_RE = re.compile(r"<img\s[^>]*/?>", re.IGNORECASE)
+_SRC_ATTR_RE = re.compile(r'src="([^"]+)"', re.IGNORECASE)
+
+
+def embed_images(html: str, post_dir: Path) -> str:
+    """Find <img> tags with local src, embed the images as base64 data URIs.
+
+    Only resolves paths relative to *post_dir*.  External URLs and already-
+    embedded data: URIs are left untouched.  Path-traversal attempts are
+    detected and the tag is left unchanged with a warning.
+    """
+
+    def _replace(match: re.Match) -> str:
+        tag = match.group(0)
+        src_m = _SRC_ATTR_RE.search(tag)
+        if not src_m:
+            return tag
+        src = src_m.group(1)
+
+        # Leave external URLs and already-embedded data URIs alone.
+        if src.startswith(("http://", "https://", "data:")):
+            return tag
+
+        # Resolve relative to the post's directory.
+        img_path = (post_dir / src).resolve()
+        post_dir_resolved = post_dir.resolve()
+
+        # Security: prevent path traversal out of the posts directory.
+        try:
+            img_path.relative_to(post_dir_resolved)
+        except ValueError:
+            print(
+                f"  Warning: image src '{src}' escapes posts directory, skipping.",
+                file=sys.stderr,
+            )
+            return tag
+
+        if not img_path.is_file():
+            print(f"  Warning: image not found: {img_path}", file=sys.stderr)
+            return tag
+
+        # Detect MIME type from extension.
+        ext = img_path.suffix.lower()
+        mime = _IMG_MIME.get(ext)
+        if mime is None:
+            print(
+                f"  Warning: unsupported image type '{ext}' for {img_path}, skipping.",
+                file=sys.stderr,
+            )
+            return tag
+
+        img_bytes = img_path.read_bytes()
+        b64 = base64.b64encode(img_bytes).decode("ascii")
+        data_uri = f"data:{mime};base64,{b64}"
+
+        return tag.replace(f'src="{src}"', f'src="{data_uri}"')
+
+    return _IMG_TAG_RE.sub(_replace, html)
+
+
 def parse_post(filepath: Path) -> dict:
     """
     Parse a markdown post with YAML frontmatter.
@@ -131,6 +209,7 @@ def parse_post(filepath: Path) -> dict:
     title = meta.get("title", slug)
 
     html = MARKDOWN(body)
+    html = embed_images(html, filepath.parent)
 
     return {
         "slug": slug,
@@ -196,56 +275,44 @@ def main() -> None:
         SRC_DIR,
         OUT_DIR,
         dirs_exist_ok=True,
-        ignore=shutil.ignore_patterns("user"),
+        ignore=shutil.ignore_patterns("user", "*.j2"),
     )
     print(f"Copied static assets from {SRC_DIR} to {OUT_DIR}")
 
-    # 2b. Create /login.html for GitHub Pages (handles fragment-preserving auth).
-    (OUT_DIR / "login.html").write_text(
-        '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
-        '  <meta charset="UTF-8">\n'
-        '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
-        '  <meta http-equiv="Content-Security-Policy" content="'
-        "default-src 'none'; script-src 'self'; style-src 'self';"
-        " connect-src 'self'; img-src 'self' data:;"
-        " base-uri 'none'; object-src 'none';"
-        " form-action 'none'; frame-ancestors 'none';\">\n"
-        '  <title>blog — login</title>\n'
-        '</head>\n<body data-base=".">\n'
-        '  <script src="./js/auth.js"></script>\n'
-        '</body>\n</html>\n',
-        encoding="utf-8",
+    # 2b. Set up Jinja2 (used for login, arch, and per-user index pages).
+    jinja_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(str(SRC_DIR)),
+        autoescape=True,
     )
+
+    # 2c. Create /login.html for GitHub Pages (handles fragment-preserving auth).
+    login_html = jinja_env.get_template("login.html.j2").render(csp=CSP)
+    (OUT_DIR / "login.html").write_text(login_html, encoding="utf-8")
     print("  Created login.html (GitHub Pages compat)")
 
-    # 2c. Render architecture page (public).
+    # 2d. Render architecture page (public).
     arch_md = BASE_DIR / "architecture.md"
     if arch_md.exists():
-        arch_html = MARKDOWN(arch_md.read_text(encoding="utf-8"))
-        arch_page = (
-            '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
-            '  <meta charset="UTF-8">\n'
-            '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
-            '  <meta http-equiv="Content-Security-Policy" content="'
-            "default-src 'none'; script-src 'self'; style-src 'self'; "
-            "connect-src 'self'; img-src 'self' data:; "
-            "base-uri 'none'; object-src 'none';"
-            " form-action 'none'; frame-ancestors 'none';\">\n"
-            '  <title>architecture</title>\n'
-            '  <style>\n'
-            '    body { max-width:720px; margin:0 auto; padding:2rem 1rem; '
-            'font-family:system-ui,sans-serif; line-height:1.6; color:#1a1a1a; }\n'
-            '    pre { background:#f5f5f5; padding:1rem; overflow-x:auto; }\n'
-            '    code { font-size:0.9em; }\n'
-            '    a { color:#2563eb; }\n'
-            '  </style>\n</head>\n<body>\n'
-            + arch_html +
-            '\n</body>\n</html>'
-        )
-        (OUT_DIR / "arch.html").write_text(arch_page, encoding="utf-8")
+        arch_content = MARKDOWN(arch_md.read_text(encoding="utf-8"))
+        arch_html = jinja_env.get_template("arch.html.j2").render(csp=CSP, content=arch_content)
+        (OUT_DIR / "arch.html").write_text(arch_html, encoding="utf-8")
         print("  Rendered architecture → arch.html")
     else:
         print("  Skipping arch.html (architecture.md not found)")
+
+    # 2e. Render page templates (Jinja2 with CSP injected).
+    _PAGES = [
+        "index.html.j2",
+        "post/index.html.j2",
+        "logout/index.html.j2",
+        "unauthorized/index.html.j2",
+    ]
+    for template_name in _PAGES:
+        out_path = OUT_DIR / template_name.replace(".j2", "")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        html = jinja_env.get_template(template_name).render(csp=CSP)
+        out_path.write_text(html, encoding="utf-8")
+    print("  Rendered page templates (index, post, logout, unauthorized)")
 
     # 3. Process posts.
     posts_out = OUT_DIR / "posts"
@@ -275,11 +342,6 @@ def main() -> None:
     users_out = OUT_DIR / "users"
     users_out.mkdir(exist_ok=True)
 
-    # Set up Jinja2 for index page rendering.
-    jinja_env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(str(SRC_DIR)),
-        autoescape=True,
-    )
     index_template = jinja_env.get_template("user/index.html.j2")
 
     for user in users:
