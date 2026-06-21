@@ -2,13 +2,13 @@
  * Static blog decryption engine.
  *
  * Handles:
- *  - One-time link fragment (#key=...&uid=...) → cookie set + redirect
+ *  - Onboarding link fragment (#key=...&uid=...) → localStorage set + redirect
  *  - Post decryption via ?id=<slug>
  *
  * Crypto: AES-256-GCM, raw binary .enc files (12-byte nonce + ciphertext+tag).
  */
 
-/* ── One-time link handler (same as auth.js, in case link points to /post/) ── */
+/* ── Onboarding link handler (same as auth.js, in case link points to /post/) ── */
 
 (function () {
   if (!window.location.hash) return;
@@ -25,32 +25,14 @@
   // Validate key: unpadded base64url 32 bytes → always 43 characters.
   if (key.length !== 43 || !/^[A-Za-z0-9_-]+$/.test(key)) return;
 
-  var expires = new Date();
-  expires.setFullYear(expires.getFullYear() + 1);
+  localStorage.setItem("__Host-key", key);
+  localStorage.setItem("__Host-uid", uid);
 
-  document.cookie =
-    "__Host-key=" + encodeURIComponent(key) +
-    "; expires=" + expires.toUTCString() +
-    "; path=/" +
-    "; Secure" +
-    "; SameSite=Lax";
-
-  document.cookie =
-    "__Host-uid=" + encodeURIComponent(uid) +
-    "; expires=" + expires.toUTCString() +
-    "; path=/" +
-    "; Secure" +
-    "; SameSite=Lax";
-
+  // Strip fragment, preserve query string.
   window.location.replace(window.location.pathname + window.location.search);
 })();
 
 /* ── Helpers ── */
-
-function getCookie(name) {
-  var match = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
-  return match ? decodeURIComponent(match[1]) : null;
-}
 
 /**
  * Convert a base64url string to a Uint8Array.
@@ -80,7 +62,6 @@ function base64urlToBytes(str) {
  */
 async function decrypt(keyBytes, encData) {
   if (encData.byteLength < 28) {
-    // Minimum: 12 (nonce) + 1 (payload) + 16 (tag)
     throw new Error("enc file too short: " + encData.byteLength + " bytes");
   }
 
@@ -107,12 +88,12 @@ async function decrypt(keyBytes, encData) {
 
 async function loadPost() {
   var slug = new URLSearchParams(window.location.search).get("id");
-  if (!slug) return; // v1: nothing to show
+  if (!slug) return;
 
-  var keyB64 = getCookie("__Host-key");
-  var uid = getCookie("__Host-uid");
+  var keyB64 = localStorage.getItem("__Host-key");
+  var uid = localStorage.getItem("__Host-uid");
 
-  if (!keyB64 || !uid) {
+  if (!keyB64 || !uid || !/^[a-f0-9]{16}$/.test(uid)) {
     throw new Error("Missing credentials — visit your one-time link first.");
   }
 
@@ -126,8 +107,10 @@ async function loadPost() {
     throw new Error("Invalid key length: expected 32 bytes, got " + keyBytes.length);
   }
 
+  var base = document.body.getAttribute("data-base") || ".";
+
   // 1. Fetch and decrypt user manifest.
-  var manifestResp = await fetch("/users/" + encodeURIComponent(uid) + "/info.enc");
+  var manifestResp = await fetch(base + "/users/" + encodeURIComponent(uid) + "/info.enc");
   if (!manifestResp.ok) {
     throw new Error("Failed to fetch user manifest: HTTP " + manifestResp.status);
   }
@@ -152,7 +135,7 @@ async function loadPost() {
   }
 
   // 3. Fetch and decrypt post.
-  var postResp = await fetch("/posts/" + encodeURIComponent(slug) + ".enc");
+  var postResp = await fetch(base + "/posts/" + encodeURIComponent(slug) + ".enc");
   if (!postResp.ok) {
     throw new Error("Failed to fetch post: HTTP " + postResp.status);
   }
@@ -169,5 +152,6 @@ async function loadPost() {
 
 loadPost().catch(function (err) {
   console.error("decrypt error:", err);
-  window.location.replace("/unauthorized/");
+  var base = document.body.getAttribute("data-base") || ".";
+  window.location.replace(base + "/unauthorized/");
 });

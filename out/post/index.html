@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none';">
   <title>blog — post</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-base="..">
   <main><article id="content"></article></main>
-  <script src="../js/decrypt.js"></script>
+  <script src="../js/decrypt.js" integrity="sha256-un/Be8923FW4qX+xZsto1a1AO8ZlKNY7QMlN4226VUI="></script>
 </body>
 </html>

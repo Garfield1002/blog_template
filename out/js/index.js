@@ -1,17 +1,12 @@
 /**
  * Index page decryption engine.
  *
- * Reads key + uid from cookies, fetches the user's encrypted index page
+ * Reads key + uid from localStorage, fetches the user's encrypted index page
  * from /users/<uid>/index.enc, decrypts it with AES-256-GCM, and injects
  * the HTML into #content.
  */
 
 /* ── Helpers (mirrored from decrypt.js for independence) ── */
-
-function getCookie(name) {
-  var match = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
-  return match ? decodeURIComponent(match[1]) : null;
-}
 
 function base64urlToBytes(str) {
   var b64 = str.replace(/-/g, "+").replace(/_/g, "/");
@@ -54,12 +49,12 @@ async function loadIndex() {
   // Don't run during auth redirect — let auth.js handle the fragment first.
   if (window.location.hash) return;
 
-  var keyB64 = getCookie("__Host-key");
-  var uid = getCookie("__Host-uid");
+  var keyB64 = localStorage.getItem("__Host-key");
+  var uid = localStorage.getItem("__Host-uid");
 
-  if (!keyB64 || !uid) {
-    // Not authenticated — redirect to unauthorized page.
-    window.location.replace("/unauthorized/");
+  if (!keyB64 || !uid || !/^[a-f0-9]{16}$/.test(uid)) {
+    var base = document.body.getAttribute("data-base") || ".";
+    window.location.replace(base + "/unauthorized/");
     return;
   }
 
@@ -68,8 +63,10 @@ async function loadIndex() {
     throw new Error("Invalid key length: expected 32 bytes, got " + keyBytes.length);
   }
 
+  var base = document.body.getAttribute("data-base") || ".";
+
   // Fetch and decrypt the user's encrypted index page.
-  var resp = await fetch("/users/" + encodeURIComponent(uid) + "/index.enc");
+  var resp = await fetch(base + "/users/" + encodeURIComponent(uid) + "/index.enc");
   if (!resp.ok) {
     throw new Error("Failed to fetch index: HTTP " + resp.status);
   }
@@ -86,5 +83,6 @@ async function loadIndex() {
 
 loadIndex().catch(function (err) {
   console.error("index error:", err);
-  window.location.replace("/unauthorized/");
+  var base = document.body.getAttribute("data-base") || ".";
+  window.location.replace(base + "/unauthorized/");
 });

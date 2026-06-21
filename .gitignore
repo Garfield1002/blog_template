@@ -2,7 +2,8 @@
 # out/
 
 # Sensitive key material
-security/users.csv
+/security/
+/posts/
 
 # Python
 __pycache__/

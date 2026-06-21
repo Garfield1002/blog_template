@@ -1,7 +1,7 @@
 /**
- * One-time link handler.
+ * Onboarding link handler.
  *
- * Reads key=...&uid=... from the URL fragment, stores them as cookies,
+ * Reads key=...&uid=... from the URL fragment, stores them in localStorage,
  * and redirects to the clean URL (fragment stripped).
  *
  * Link format: https://example.com/login#key=<base64url>&uid=<hex>
@@ -10,7 +10,7 @@
 (function () {
   if (!window.location.hash) return;
 
-  var raw = window.location.hash.substring(1); // strip leading #
+  var raw = window.location.hash.substring(1);
   if (!raw) return;
 
   var params = new URLSearchParams(raw);
@@ -22,23 +22,10 @@
   // Validate key: unpadded base64url 32 bytes → always 43 characters.
   if (key.length !== 43 || !/^[A-Za-z0-9_-]+$/.test(key)) return;
 
-  var expires = new Date();
-  expires.setFullYear(expires.getFullYear() + 1);
+  localStorage.setItem("__Host-key", key);
+  localStorage.setItem("__Host-uid", uid);
 
-  document.cookie =
-    "__Host-key=" + encodeURIComponent(key) +
-    "; expires=" + expires.toUTCString() +
-    "; path=/" +
-    "; Secure" +
-    "; SameSite=Lax";
-
-  document.cookie =
-    "__Host-uid=" + encodeURIComponent(uid) +
-    "; expires=" + expires.toUTCString() +
-    "; path=/" +
-    "; Secure" +
-    "; SameSite=Lax";
-
-  // Strip the fragment and redirect. The root page is now the index.
-  window.location.replace("/" + window.location.search);
+  // Strip the fragment and redirect to index.
+  var base = document.body.getAttribute("data-base") || ".";
+  window.location.replace(base + "/" + window.location.search);
 })();

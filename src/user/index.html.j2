@@ -1,8 +1,9 @@
+<nav><a href="./logout/">logout</a></nav>
 <h1>Hello, {{ name }}</h1>
 {% if posts %}
 <ul>
 {% for post in posts %}
-  <li><a href="/post/?id={{ post.slug | urlencode }}">{{ post.title | e }}</a></li>
+  <li><a href="./post/?id={{ post.slug | urlencode }}">{{ post.title | e }}</a></li>
 {% endfor %}
 </ul>
 {% else %}

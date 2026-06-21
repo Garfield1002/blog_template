@@ -16,8 +16,10 @@ Flow:
 
 import base64
 import csv
+import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import sys
@@ -54,6 +56,42 @@ def encrypt_bytes(key: bytes, plaintext: bytes) -> bytes:
     return nonce + ct
 
 
+def sri_hash(filepath: Path) -> str:
+    """Compute sha256-<base64> SRI integrity hash for a file."""
+    sha256 = hashlib.sha256(filepath.read_bytes()).digest()
+    b64 = base64.b64encode(sha256).decode("ascii")
+    return f"sha256-{b64}"
+
+
+def inject_sri(html_path: Path) -> None:
+    """Add integrity attributes to <script src="..."> tags in an HTML file.
+
+    Resolves each src relative to the HTML file's directory, computes the
+    SHA-256 hash of the referenced JS file, and injects an integrity attribute.
+    Tags that already have an integrity attribute are left unchanged.
+    """
+    html = html_path.read_text(encoding="utf-8")
+    html_dir = html_path.parent
+
+    def replace_script_tag(match):
+        tag = match.group(0)
+        if "integrity=" in tag:
+            return tag
+        src = match.group(1)
+        js_path = (html_dir / src).resolve()
+        if js_path.exists():
+            integrity = sri_hash(js_path)
+            return tag[:-1] + f' integrity="{integrity}">'
+        return tag
+
+    new_html = re.sub(
+        r'<script\s[^>]*src="([^"]+)"[^>]*>',
+        replace_script_tag,
+        html,
+    )
+    html_path.write_text(new_html, encoding="utf-8")
+
+
 def parse_post(filepath: Path) -> dict:
     """
     Parse a markdown post with YAML frontmatter.
@@ -71,7 +109,7 @@ def parse_post(filepath: Path) -> dict:
     meta = yaml.safe_load(parts[1]) or {}
     body = parts[2].strip()
 
-    slug = secrets.token_hex(6)  # 12 random hex chars
+    slug = secrets.token_hex(8)  # 16 random hex chars
 
     access = meta.get("access", [])
     if not isinstance(access, list):
@@ -151,7 +189,24 @@ def main() -> None:
     )
     print(f"Copied static assets from {SRC_DIR} to {OUT_DIR}")
 
-    # 2b. Render architecture page (public).
+    # 2b. Create /login.html for GitHub Pages (handles fragment-preserving auth).
+    (OUT_DIR / "login.html").write_text(
+        '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
+        '  <meta charset="UTF-8">\n'
+        '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
+        '  <meta http-equiv="Content-Security-Policy" content="'
+        "default-src 'none'; script-src 'self'; style-src 'self';"
+        " connect-src 'self'; base-uri 'none'; object-src 'none';"
+        " form-action 'none'; frame-ancestors 'none';\">\n"
+        '  <title>blog — login</title>\n'
+        '</head>\n<body data-base=".">\n'
+        '  <script src="./js/auth.js"></script>\n'
+        '</body>\n</html>\n',
+        encoding="utf-8",
+    )
+    print("  Created login.html (GitHub Pages compat)")
+
+    # 2c. Render architecture page (public).
     arch_md = BASE_DIR / "architecture.md"
     if arch_md.exists():
         arch_html = mistune.html(arch_md.read_text(encoding="utf-8"))
@@ -161,7 +216,8 @@ def main() -> None:
             '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
             '  <meta http-equiv="Content-Security-Policy" content="'
             "default-src 'none'; script-src 'self'; style-src 'self'; "
-            "base-uri 'none';\">\n"
+            "base-uri 'none'; object-src 'none';"
+            " form-action 'none'; frame-ancestors 'none';\">\n"
             '  <title>architecture</title>\n'
             '  <style>\n'
             '    body { max-width:720px; margin:0 auto; padding:2rem 1rem; '
@@ -243,6 +299,12 @@ def main() -> None:
 
         post_count = len(manifest["posts"])
         print(f"  User {uid} ({name}): {post_count} post(s)")
+
+    # 5. Inject SRI integrity hashes into all HTML files.
+    print()
+    for html_file in sorted(OUT_DIR.rglob("*.html")):
+        inject_sri(html_file)
+        print(f"  SRI: {html_file.relative_to(OUT_DIR)}")
 
     print()
     print(f"Done. Output: {OUT_DIR}")
