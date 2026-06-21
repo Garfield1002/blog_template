@@ -4,44 +4,9 @@
  * Reads key + uid from localStorage, fetches the user's encrypted index page
  * from /users/<uid>/index.enc, decrypts it with AES-256-GCM, and injects
  * the HTML into #content.
+ *
+ * crypto.js must be loaded first (provides base64urlToBytes and decrypt).
  */
-
-/* ── Helpers (mirrored from decrypt.js for independence) ── */
-
-function base64urlToBytes(str) {
-  var b64 = str.replace(/-/g, "+").replace(/_/g, "/");
-  while (b64.length % 4) b64 += "=";
-  var raw = atob(b64);
-  var bytes = new Uint8Array(raw.length);
-  for (var i = 0; i < raw.length; i++) {
-    bytes[i] = raw.charCodeAt(i);
-  }
-  return bytes;
-}
-
-async function decrypt(keyBytes, encData) {
-  if (encData.byteLength < 28) {
-    throw new Error("enc file too short: " + encData.byteLength + " bytes");
-  }
-
-  var full = new Uint8Array(encData);
-  var nonce = full.slice(0, 12);
-  var ciphertext = full.slice(12);
-
-  var key = await crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    { name: "AES-GCM" },
-    false,
-    ["decrypt"]
-  );
-
-  return crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: nonce, tagLength: 128 },
-    key,
-    ciphertext
-  );
-}
 
 /* ── Index flow ── */
 

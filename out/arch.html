@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none';">
   <title>architecture</title>
   <style>
     body { max-width:720px; margin:0 auto; padding:2rem 1rem; font-family:system-ui,sans-serif; line-height:1.6; color:#1a1a1a; }
@@ -109,44 +109,15 @@ date: 2025-06-21
 </code></pre>
 <p>The <code>access</code> list contains user IDs (16-char hex strings). Only listed users receive the post's DEK in their manifest and see it in their index.</p>
 <h2>Pages</h2>
-<table>
-<thead>
-<tr>
-  <th>Path</th>
-  <th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-  <td><code>/</code></td>
-  <td>Root — authenticated users see their encrypted post index</td>
-</tr>
-<tr>
-  <td><code>/login#key=...&amp;uid=...</code></td>
-  <td>Onboarding link landing page</td>
-</tr>
-<tr>
-  <td><code>/login/</code></td>
-  <td>Stripped-fragment redirect target (handled by auth.js)</td>
-</tr>
-<tr>
-  <td><code>/logout/</code></td>
-  <td>Clears key and uid from localStorage, redirects to <code>/</code></td>
-</tr>
-<tr>
-  <td><code>/post/?id=&lt;slug&gt;</code></td>
-  <td>Individual encrypted post</td>
-</tr>
-<tr>
-  <td><code>/unauthorized/</code></td>
-  <td>Shown when not authenticated or decryption fails</td>
-</tr>
-<tr>
-  <td><code>/arch.html</code></td>
-  <td>This document (public)</td>
-</tr>
-</tbody>
-</table>
+<p>| Path | Purpose |
+|------|---------|
+| <code>/</code> | Root — authenticated users see their encrypted post index |
+| <code>/login#key=...&amp;uid=...</code> | Onboarding link landing page |
+| <code>/login/</code> | Stripped-fragment redirect target (handled by auth.js) |
+| <code>/logout/</code> | Clears key and uid from localStorage, redirects to <code>/</code> |
+| <code>/post/?id=&lt;slug&gt;</code> | Individual encrypted post |
+| <code>/unauthorized/</code> | Shown when not authenticated or decryption fails |
+| <code>/arch.html</code> | This document (public) |</p>
 <h2>Adding a user</h2>
 <p>Script: <code>./scripts/add-user.py &lt;name&gt;</code></p>
 <ul>
@@ -184,44 +155,15 @@ Anyone who has a user's key can decrypt that user's manifest and index and read 
 <p>Their old <code>.enc</code> manifest and index are no longer deployed after the next rebuild. They can't read new posts. Revocation only affects the newly deployed site. It does not invalidate copies of old encrypted blobs that the user already downloaded.</p>
 <p>For already-published content, if they cached their manifest, index, and the post blobs, they can still read them. This is inherent to a static scheme — there is no server to check freshness.</p>
 <h2>Crypto stack</h2>
-<table>
-<thead>
-<tr>
-  <th>Parameter</th>
-  <th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-  <td>Cipher</td>
-  <td>AES-256-GCM</td>
-</tr>
-<tr>
-  <td>Key size</td>
-  <td>256 bits (32 bytes)</td>
-</tr>
-<tr>
-  <td>Nonce / IV</td>
-  <td>96 bits (12 bytes), random per encryption</td>
-</tr>
-<tr>
-  <td>Auth tag</td>
-  <td>128 bits (16 bytes), appended to ciphertext</td>
-</tr>
-<tr>
-  <td>Key encoding</td>
-  <td>Unpadded base64url (RFC 4648 §5)</td>
-</tr>
-<tr>
-  <td>Client API</td>
-  <td>Web Crypto API (<code>crypto.subtle</code>)</td>
-</tr>
-<tr>
-  <td>Python lib</td>
-  <td><code>cryptography.hazmat.primitives.ciphers.aead.AESGCM</code></td>
-</tr>
-</tbody>
-</table>
+<p>| Parameter | Value |
+|-----------|-------|
+| Cipher | AES-256-GCM |
+| Key size | 256 bits (32 bytes) |
+| Nonce / IV | 96 bits (12 bytes), random per encryption |
+| Auth tag | 128 bits (16 bytes), appended to ciphertext |
+| Key encoding | Unpadded base64url (RFC 4648 §5) |
+| Client API | Web Crypto API (<code>crypto.subtle</code>) |
+| Python lib | <code>cryptography.hazmat.primitives.ciphers.aead.AESGCM</code> |</p>
 <p>No KDF. No key wrapping. Raw 256-bit keys used directly — the key is already a random 256-bit string; adding PBKDF2 would only burn CPU for no security gain.</p>
 <h2>CSP</h2>
 <p>All pages ship a strict Content Security Policy via <code>&lt;meta&gt;</code> tag:</p>

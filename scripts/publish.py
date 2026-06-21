@@ -30,6 +30,10 @@ import mistune
 import yaml
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+# Markdown renderer with HTML escaping enabled (security: prevents raw HTML
+# from Markdown posts being injected into the page via innerHTML).
+MARKDOWN = mistune.create_markdown(escape=True)
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 SRC_DIR = BASE_DIR / "src"
 POSTS_DIR = BASE_DIR / "posts"
@@ -64,32 +68,39 @@ def sri_hash(filepath: Path) -> str:
 
 
 def inject_sri(html_path: Path) -> None:
-    """Add integrity attributes to <script src="..."> tags in an HTML file.
+    """Add integrity attributes to <script> and <link rel=stylesheet> tags.
 
-    Resolves each src relative to the HTML file's directory, computes the
-    SHA-256 hash of the referenced JS file, and injects an integrity attribute.
+    Resolves each src/href relative to the HTML file's directory, computes the
+    SHA-256 hash of the referenced file, and injects an integrity attribute.
     Tags that already have an integrity attribute are left unchanged.
     """
     html = html_path.read_text(encoding="utf-8")
     html_dir = html_path.parent
 
-    def replace_script_tag(match):
+    def replace_src_tag(match):
         tag = match.group(0)
         if "integrity=" in tag:
             return tag
         src = match.group(1)
-        js_path = (html_dir / src).resolve()
-        if js_path.exists():
-            integrity = sri_hash(js_path)
+        path = (html_dir / src).resolve()
+        if path.exists():
+            integrity = sri_hash(path)
             return tag[:-1] + f' integrity="{integrity}">'
         return tag
 
-    new_html = re.sub(
+    # Inject SRI on <script src="..."> tags.
+    html = re.sub(
         r'<script\s[^>]*src="([^"]+)"[^>]*>',
-        replace_script_tag,
+        replace_src_tag,
         html,
     )
-    html_path.write_text(new_html, encoding="utf-8")
+    # Inject SRI on <link rel="stylesheet" href="..."> tags.
+    html = re.sub(
+        r'<link\s[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>',
+        replace_src_tag,
+        html,
+    )
+    html_path.write_text(html, encoding="utf-8")
 
 
 def parse_post(filepath: Path) -> dict:
@@ -119,7 +130,7 @@ def parse_post(filepath: Path) -> dict:
 
     title = meta.get("title", slug)
 
-    html = mistune.html(body)
+    html = MARKDOWN(body)
 
     return {
         "slug": slug,
@@ -196,7 +207,8 @@ def main() -> None:
         '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
         '  <meta http-equiv="Content-Security-Policy" content="'
         "default-src 'none'; script-src 'self'; style-src 'self';"
-        " connect-src 'self'; base-uri 'none'; object-src 'none';"
+        " connect-src 'self'; img-src 'self' data:;"
+        " base-uri 'none'; object-src 'none';"
         " form-action 'none'; frame-ancestors 'none';\">\n"
         '  <title>blog — login</title>\n'
         '</head>\n<body data-base=".">\n'
@@ -209,13 +221,14 @@ def main() -> None:
     # 2c. Render architecture page (public).
     arch_md = BASE_DIR / "architecture.md"
     if arch_md.exists():
-        arch_html = mistune.html(arch_md.read_text(encoding="utf-8"))
+        arch_html = MARKDOWN(arch_md.read_text(encoding="utf-8"))
         arch_page = (
             '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
             '  <meta charset="UTF-8">\n'
             '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
             '  <meta http-equiv="Content-Security-Policy" content="'
             "default-src 'none'; script-src 'self'; style-src 'self'; "
+            "connect-src 'self'; img-src 'self' data:; "
             "base-uri 'none'; object-src 'none';"
             " form-action 'none'; frame-ancestors 'none';\">\n"
             '  <title>architecture</title>\n'

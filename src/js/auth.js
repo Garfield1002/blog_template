@@ -27,5 +27,5 @@
 
   // Strip the fragment and redirect to index.
   var base = document.body.getAttribute("data-base") || ".";
-  window.location.replace(base + "/" + window.location.search);
+  window.location.replace(base + "/");
 })();

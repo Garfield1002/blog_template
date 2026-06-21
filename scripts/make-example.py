@@ -64,6 +64,18 @@ def parse_index_links(html: str) -> list[tuple[str, str]]:
 
 
 def main(base_url: str) -> None:
+    # --- Safety check ---
+    print()
+    print("⚠️  WARNING: This script will publish real user keys to README.md.")
+    print("    Only run this for demo or example deployments.")
+    print("    Never run against a production users.csv file.")
+    print()
+    answer = input("    Type \"I know what I'm doing\" to continue: ")
+    if answer != "I know what I'm doing":
+        print("Aborted.")
+        sys.exit(0)
+    print()
+
     # --- Read users ---
     if not CSV_PATH.exists():
         print(
