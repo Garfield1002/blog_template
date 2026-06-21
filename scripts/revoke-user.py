@@ -7,45 +7,20 @@ all DEKs and rebuild all manifests without this user — their manifest and
 index files will not appear in the output directory.
 """
 
-import csv
 import sys
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CSV_PATH = BASE_DIR / "security" / "users.csv"
+import lib
 
 
 def main(uid: str) -> None:
-    if not CSV_PATH.exists():
-        print(f"Error: {CSV_PATH} not found — no users to revoke.", file=sys.stderr)
+    removed = lib.remove_user(uid)
+    if removed is None:
+        print(f"Error: no user with uid={uid} found in {lib.USERS_CSV}",
+              file=sys.stderr)
         sys.exit(1)
 
-    rows = []
-    found = False
-    with open(CSV_PATH, newline="") as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if not row or row[0].startswith("#"):
-                rows.append(row)
-                continue
-            try:
-                if row[1] == uid:
-                    found = True
-                    print(f"Revoking user '{row[0]}' (uid={uid})")
-                    continue  # drop this row
-            except IndexError:
-                pass
-            rows.append(row)
-
-    if not found:
-        print(f"Error: no user with uid={uid} found in {CSV_PATH}", file=sys.stderr)
-        sys.exit(1)
-
-    with open(CSV_PATH, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerows(rows)
-
-    print("User removed from CSV.")
+    print(f"Revoked user '{removed.name}' (uid={uid})")
     print("Run publish.py to rebuild the site without this user's manifest.")
 
 
