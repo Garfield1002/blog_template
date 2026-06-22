@@ -159,7 +159,7 @@ The `access` list contains user IDs (16-char hex strings). Only listed users rec
 
 ## Adding a user
 
-Script: `uv run python scripts/add-user.py <name>`
+Script: `uv run add-user <name>`
 
 - Generates a random 256-bit key (32 bytes, base64url-encoded).
 - Generates a random 16-character hex user ID (64 bits of entropy).
@@ -168,7 +168,7 @@ Script: `uv run python scripts/add-user.py <name>`
 
 ## Revoking a user
 
-Script: `uv run python scripts/revoke-user.py <uid>`
+Script: `uv run revoke-user <uid>`
 
 - Removes the user from `security/users.csv`.
 - Triggers a full rebuild: regenerates all DEKs, re-encrypts all posts, rebuilds every remaining user's manifest and index page.
@@ -178,7 +178,7 @@ Revocation only affects the newly deployed site. It does not invalidate copies o
 
 ## Rebuilding after a post change
 
-Script: `uv run python scripts/publish.py`
+Script: `uv run publish`
 
 - Parses all Markdown posts, reads access frontmatter and titles.
 - For each post: generates a random 16-char hex slug, generates a new random DEK, encrypts the HTML.

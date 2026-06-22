@@ -1,22 +1,12 @@
-#!/usr/bin/env python3
-"""
-Update the "Example Logins" section of README.md with actual user keys and
-post links.
-
-Reads user keys from security/users.csv, decrypts each user's per-user
-index page (out/users/<uid>/index.enc) to discover post slugs and titles,
-then regenerates the example section.
-
-Requires a completed build (python scripts/publish.py).
-
-Usage:
-  python scripts/make-example.py [--base-url https://example.com]
-"""
+"""Console entry point for updating README example logins."""
 
 import argparse
 import re
 import sys
 from pathlib import Path
+
+# Support both package entry points (`uv run make_example`) and direct module use.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import lib
 
@@ -55,7 +45,7 @@ def main(base_url: str) -> None:
 
     # --- Decrypt each user's index to discover (slug, title) pairs ---
     if not lib.OUT_DIR.is_dir():
-        print(f"Error: {lib.OUT_DIR} not found — run publish.py first.",
+        print(f"Error: {lib.OUT_DIR} not found — run `uv run publish` first.",
               file=sys.stderr)
         sys.exit(1)
 
@@ -66,7 +56,7 @@ def main(base_url: str) -> None:
         index_path = lib.OUT_DIR / "users" / user.id / "index.enc"
         if not index_path.exists():
             print(f"Warning: {index_path} not found for {user.name} — "
-                  "run publish.py first.", file=sys.stderr)
+                  "run `uv run publish` first.", file=sys.stderr)
             user_posts[user.name] = []
             continue
 
@@ -128,7 +118,7 @@ def main(base_url: str) -> None:
         print(f"  {name}: {len(posts)} post(s)")
 
 
-if __name__ == "__main__":
+def cli() -> None:
     parser = argparse.ArgumentParser(
         description="Update README example logins from build output"
     )
@@ -140,3 +130,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     main(args.base_url)
+
+
+if __name__ == "__main__":
+    cli()

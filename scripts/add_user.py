@@ -1,13 +1,10 @@
-#!/usr/bin/env python3
-"""
-Add a new user to the blog.
-
-Generates a random 256-bit AES key, a random 16-character hex user ID,
-appends to security/users.csv, and prints the one-time link.
-"""
+"""Console entry point for adding a blog user."""
 
 import sys
 from pathlib import Path
+
+# Support both package entry points (`uv run add-user`) and direct script use.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import lib
 
@@ -22,8 +19,12 @@ def main(name: str) -> None:
     print("After opening, the credentials are stored in localStorage.")
 
 
-if __name__ == "__main__":
+def cli() -> None:
     if len(sys.argv) < 2:
-        print("Usage: add-user.py <name>", file=sys.stderr)
+        print("Usage: add-user <name>", file=sys.stderr)
         sys.exit(1)
     main(sys.argv[1])
+
+
+if __name__ == "__main__":
+    cli()

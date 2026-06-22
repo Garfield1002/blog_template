@@ -12,8 +12,8 @@ Crawlers and random visitors see nothing but encrypted blobs.
 uv sync
 
 # Add users
-uv run python scripts/add-user.py Alice
-uv run python scripts/add-user.py Bob
+uv run add-user Alice
+uv run add-user Bob
 
 # Create a post (posts/hello-world.md)
 # ---
@@ -24,13 +24,13 @@ uv run python scripts/add-user.py Bob
 # ...
 
 # Build
-uv run python scripts/publish.py
+uv run publish
 
 # Serve
 python -m http.server -d out/ 8080
 ```
 
-Each `add-user.py` run prints an onboarding URL. Send it to the user. They open it once — the browser stores the credentials in localStorage — then the root page shows their post index.
+Each `uv run add-user` run prints an onboarding URL. Send it to the user. They open it once — the browser stores the credentials in localStorage — then the root page shows their post index.
 
 ## How it works
 
@@ -64,9 +64,16 @@ Keep local secrets private too: `security/` and `posts/` should be mode `700`, a
 ## Revoking access
 
 ```bash
-uv run python scripts/revoke-user.py <uid>
-uv run python scripts/publish.py     # rebuild — revoked user's files are gone
+uv run revoke-user <uid>
+uv run publish                       # rebuild — revoked user's files are gone
 ```
+
+## Commands
+
+- `uv run add-user <name>` — create a user and print their onboarding URL.
+- `uv run revoke-user <uid>` — remove a user from `security/users.csv`.
+- `uv run publish` — rebuild the encrypted static site.
+- `uv run make_example [--base-url URL]` — regenerate the README demo-login section from the current build.
 
 ## Dependencies
 
@@ -81,7 +88,7 @@ Use `uv sync` to install the pinned Python dependency set from `uv.lock`.
 > **Demo keys only.** The credentials below are published intentionally so visitors can explore the blog.
 > In a real deployment, these onboarding URLs would be sent privately to each user.
 
-[Alice](https://garfield1002.github.io/blog_template/login#key=tjBwKZwLI-TMhTlB_NxNox7PFs9KIS1YPoiULZuZ2KM&uid=14a63cfbf7677a4c) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=a3805b4d1331db17), [Private Note](https://garfield1002.github.io/blog_template/post/?id=b6d414d3f07f69e0)
-[Bob](https://garfield1002.github.io/blog_template/login#key=RN71uk2qUwqfX7Yi82MD7xU4ngrVPTDK022nNgJD_VY&uid=c12819fcd1af678d) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=a3805b4d1331db17)
+[Alice](https://garfield1002.github.io/blog_template/login#key=tjBwKZwLI-TMhTlB_NxNox7PFs9KIS1YPoiULZuZ2KM&uid=14a63cfbf7677a4c) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=ef0df314effa5c0f), [Private Note](https://garfield1002.github.io/blog_template/post/?id=6c6633e2da93db38)
+[Bob](https://garfield1002.github.io/blog_template/login#key=RN71uk2qUwqfX7Yi82MD7xU4ngrVPTDK022nNgJD_VY&uid=c12819fcd1af678d) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=ef0df314effa5c0f)
 
 [logout](https://garfield1002.github.io/blog_template/logout/)

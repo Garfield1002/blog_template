@@ -118,7 +118,7 @@ date: 2025-06-21
 | <code>/unauthorized/</code> | Shown when not authenticated or decryption fails |
 | <code>/arch.html</code> | This document (public) |</p>
 <h2>Adding a user</h2>
-<p>Script: <code>uv run python scripts/add-user.py &lt;name&gt;</code></p>
+<p>Script: <code>uv run add-user &lt;name&gt;</code></p>
 <ul>
 <li>Generates a random 256-bit key (32 bytes, base64url-encoded).</li>
 <li>Generates a random 16-character hex user ID (64 bits of entropy).</li>
@@ -126,7 +126,7 @@ date: 2025-06-21
 <li>Prints the onboarding URL (<code>/login#key=...&amp;uid=...</code>).</li>
 </ul>
 <h2>Revoking a user</h2>
-<p>Script: <code>uv run python scripts/revoke-user.py &lt;uid&gt;</code></p>
+<p>Script: <code>uv run revoke-user &lt;uid&gt;</code></p>
 <ul>
 <li>Removes the user from <code>security/users.csv</code>.</li>
 <li>Triggers a full rebuild: regenerates all DEKs, re-encrypts all posts, rebuilds every remaining user's manifest and index page.</li>
@@ -134,7 +134,7 @@ date: 2025-06-21
 </ul>
 <p>Revocation only affects the newly deployed site. It does not invalidate copies of old encrypted blobs that the user already downloaded. Their old <code>.enc</code> manifest and index are no longer deployed after the next rebuild. They can't read new posts.</p>
 <h2>Rebuilding after a post change</h2>
-<p>Script: <code>uv run python scripts/publish.py</code></p>
+<p>Script: <code>uv run publish</code></p>
 <ul>
 <li>Parses all Markdown posts, reads access frontmatter and titles.</li>
 <li>For each post: generates a random 16-char hex slug, generates a new random DEK, encrypts the HTML.</li>

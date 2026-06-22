@@ -15,6 +15,10 @@ import shutil
 import sys
 from pathlib import Path
 
+# Support both `python scripts/publish.py` and the uv console script
+# entry point (`uv run publish`).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import jinja2
 
 import lib
