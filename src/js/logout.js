@@ -1,10 +1,12 @@
 /**
  * Logout handler.
  *
- * Removes the __Host-key and __Host-uid items from localStorage, then redirects to /.
+ * Removes the stored blog credentials from localStorage, then redirects to /.
  */
 
 (function () {
+  localStorage.removeItem("static-blog-key");
+  localStorage.removeItem("static-blog-uid");
   localStorage.removeItem("__Host-key");
   localStorage.removeItem("__Host-uid");
 

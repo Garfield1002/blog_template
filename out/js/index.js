@@ -14,8 +14,8 @@ async function loadIndex() {
   // Don't run during auth redirect — let auth.js handle the fragment first.
   if (window.location.hash) return;
 
-  var keyB64 = localStorage.getItem("__Host-key");
-  var uid = localStorage.getItem("__Host-uid");
+  var keyB64 = localStorage.getItem("static-blog-key");
+  var uid = localStorage.getItem("static-blog-uid");
 
   if (!keyB64 || !uid || !/^[a-f0-9]{16}$/.test(uid)) {
     var base = document.body.getAttribute("data-base") || ".";

@@ -192,6 +192,16 @@ def process_all_posts(
             continue
 
         slug = post["slug"]
+        while slug in post_deks:
+            # Extremely unlikely, but duplicate slugs would overwrite the same
+            # out/posts/<slug>.enc file. Regenerate until unique in this build.
+            print(
+                f"  Warning: slug collision for {slug}; regenerating.",
+                file=sys.stderr,
+            )
+            slug = secrets.token_hex(8)
+            post["slug"] = slug
+
         title = post["title"]
         html = post["html"]
         images = post["images"]

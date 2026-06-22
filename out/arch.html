@@ -4,172 +4,172 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; script-src &#39;self&#39;; style-src &#39;self&#39;; connect-src &#39;self&#39;; img-src data:; base-uri &#39;none&#39;; object-src &#39;none&#39;; form-action &#39;none&#39;; frame-ancestors &#39;none&#39;;">
+  <meta name="referrer" content="no-referrer">
   <title>architecture</title>
-  <style>
-    body { max-width:720px; margin:0 auto; padding:2rem 1rem; font-family:system-ui,sans-serif; line-height:1.6; color:#1a1a1a; }
-    pre { background:#f5f5f5; padding:1rem; overflow-x:auto; }
-    code { font-size:0.9em; }
-    a { color:#2563eb; }
-  </style>
+  <link rel="stylesheet" href="style.css" integrity="sha256-aCZTt9gkczT4hRdHZB8AFdMdwYCOgpnAYS6j6OU4Qug=">
 </head>
 <body>
-&lt;h1&gt;How does this website work ?&lt;/h1&gt;
-&lt;p&gt;A fully static semi-private blog — how&#39;s that possible ?&lt;/p&gt;
-&lt;p&gt;The reader is trusted. The server/storage is not trusted with plaintext. Random internet users are not trusted.&lt;/p&gt;
-&lt;p&gt;Security through obscurity is the worst kind of security, therefore I should be able to share the technical details of the site without compromising its security.&lt;/p&gt;
-&lt;h2&gt;What this protects against&lt;/h2&gt;
-&lt;p&gt;This is designed to stop random visitors, crawlers, search engines, and people browsing the static files from reading private posts.&lt;/p&gt;
-&lt;h2&gt;Why not just use a login?&lt;/h2&gt;
-&lt;p&gt;A normal login requires a backend that decides who can read what.
-I wanted the site to stay fully static, free to host, and easy to archive.&lt;/p&gt;
-&lt;p&gt;The tradeoff is that access control can&#39;t be done by a server, which makes it harder (or more interesting).&lt;/p&gt;
-&lt;h2&gt;Encryption&lt;/h2&gt;
-&lt;p&gt;The solution is to encrypt the blog.
-The server only hosts encrypted blobs.&lt;/p&gt;
-&lt;p&gt;Each post is encrypted with AES-256-GCM using a random Data Encryption Key (DEK).&lt;/p&gt;
-&lt;h3&gt;The key needs to come from somewhere&lt;/h3&gt;
-&lt;p&gt;White-box-cryptography (hiding the key in the distributed code), is broken.
-It&#39;s a form of obfuscation, and as such attackers will always win.&lt;/p&gt;
-&lt;p&gt;But if the key isn&#39;t in the code where is it ?&lt;/p&gt;
-&lt;p&gt;Each user is sent an onboarding URL containing their uid and secret key in the URL fragment.&lt;/p&gt;
-&lt;p&gt;This is not password-based authentication. The URL fragment contains a random 256-bit bearer secret. Anyone who has that secret can decrypt that user&#39;s manifest.&lt;/p&gt;
-&lt;p&gt;The user&#39;s key encrypts their per-user manifest and their per-user index page.&lt;/p&gt;
-&lt;h3&gt;User identity&lt;/h3&gt;
-&lt;p&gt;Users are identified by a random 16-character hex string (64 bits of entropy). Sequential integers were used in early prototypes; random strings prevent trivial enumeration of users and their manifests.&lt;/p&gt;
-&lt;h3&gt;Manifest&lt;/h3&gt;
-&lt;p&gt;Each user has a manifest stored at &lt;code&gt;/users/&amp;lt;uid&amp;gt;/info.enc&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;The manifest is encrypted with the user&#39;s AES-256 key using AES-256-GCM (random 96-bit nonce).&lt;/p&gt;
-&lt;p&gt;When decrypted, the manifest contains a mapping of post slugs to raw DEKs:&lt;/p&gt;
-&lt;pre&gt;&lt;code class=&#34;language-json&#34;&gt;{
-  &amp;quot;posts&amp;quot;: {
-    &amp;quot;a1b2c3d4e5f6&amp;quot;: &amp;quot;&amp;lt;base64url-encoded-32-byte-DEK&amp;gt;&amp;quot;,
-    &amp;quot;7890abcdef12&amp;quot;: &amp;quot;&amp;lt;base64url-encoded-32-byte-DEK&amp;gt;&amp;quot;
+<main>
+<h1>How does this website work ?</h1>
+<p>A fully static semi-private blog — how's that possible ?</p>
+<p>The reader is trusted. The server/storage is not trusted with plaintext. Random internet users are not trusted.</p>
+<p>Security through obscurity is the worst kind of security, therefore I should be able to share the technical details of the site without compromising its security.</p>
+<h2>What this protects against</h2>
+<p>This is designed to stop random visitors, crawlers, search engines, and people browsing the static files from reading private posts.</p>
+<h2>Why not just use a login?</h2>
+<p>A normal login requires a backend that decides who can read what.
+I wanted the site to stay fully static, free to host, and easy to archive.</p>
+<p>The tradeoff is that access control can't be done by a server, which makes it harder (or more interesting).</p>
+<h2>Encryption</h2>
+<p>The solution is to encrypt the blog.
+The server only hosts encrypted blobs.</p>
+<p>Each post is encrypted with AES-256-GCM using a random Data Encryption Key (DEK).</p>
+<h3>The key needs to come from somewhere</h3>
+<p>White-box-cryptography (hiding the key in the distributed code), is broken.
+It's a form of obfuscation, and as such attackers will always win.</p>
+<p>But if the key isn't in the code where is it ?</p>
+<p>Each user is sent an onboarding URL containing their uid and secret key in the URL fragment.</p>
+<p>This is not password-based authentication. The URL fragment contains a random 256-bit bearer secret. Anyone who has that secret can decrypt that user's manifest.</p>
+<p>The user's key encrypts their per-user manifest and their per-user index page.</p>
+<h3>User identity</h3>
+<p>Users are identified by a random 16-character hex string (64 bits of entropy). Sequential integers were used in early prototypes; random strings prevent trivial enumeration of users and their manifests.</p>
+<h3>Manifest</h3>
+<p>Each user has a manifest stored at <code>/users/&lt;uid&gt;/info.enc</code>.</p>
+<p>The manifest is encrypted with the user's AES-256 key using AES-256-GCM (random 96-bit nonce).</p>
+<p>When decrypted, the manifest contains a mapping of post slugs to raw DEKs:</p>
+<pre><code class="language-json">{
+  &quot;posts&quot;: {
+    &quot;a1b2c3d4e5f6&quot;: &quot;&lt;base64url-encoded-32-byte-DEK&gt;&quot;,
+    &quot;7890abcdef12&quot;: &quot;&lt;base64url-encoded-32-byte-DEK&gt;&quot;
   }
 }
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h3&gt;Per-user index page&lt;/h3&gt;
-&lt;p&gt;Each user also has an encrypted index page at &lt;code&gt;/users/&amp;lt;uid&amp;gt;/index.enc&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;This is an HTML fragment rendered at build time (Jinja2), encrypted with the user&#39;s key. It contains a greeting and a list of links to the user&#39;s accessible posts. Like the manifest, it is decrypted client-side via the Web Crypto API.&lt;/p&gt;
-&lt;h3&gt;Posts&lt;/h3&gt;
-&lt;p&gt;Each post lives at &lt;code&gt;/posts/&amp;lt;slug&amp;gt;.enc&lt;/code&gt;. Slugs are random 16-character hex strings (same format as user IDs) — they are not derived from the post filename or title. This prevents guessing post URLs.&lt;/p&gt;
-&lt;p&gt;Each post is encrypted with its own random DEK using AES-256-GCM (random 96-bit nonce).
-When decrypted, the blob yields the post&#39;s raw HTML.&lt;/p&gt;
-&lt;h3&gt;Binary format&lt;/h3&gt;
-&lt;p&gt;Both user manifests, index pages, and post blobs use the same on-disk format:&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;[12 bytes: random nonce] [variable: ciphertext + 16 bytes: GCM auth tag]
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h3&gt;Flow&lt;/h3&gt;
-&lt;ol&gt;
-&lt;li&gt;You receive an onboarding URL: &lt;code&gt;https://example.com/login#key=&amp;lt;base64url-key&amp;gt;&amp;amp;uid=&amp;lt;16-char-hex&amp;gt;&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;The &lt;code&gt;/login/&lt;/code&gt; page loads &lt;code&gt;auth.js&lt;/code&gt;, which parses the fragment, stores the key and uid in localStorage, then redirects to &lt;code&gt;/&lt;/code&gt;.&lt;/li&gt;
-&lt;li&gt;The root page (&lt;code&gt;/&lt;/code&gt;) loads &lt;code&gt;index.js&lt;/code&gt;, which reads key and uid from localStorage, fetches &lt;code&gt;/users/&amp;lt;uid&amp;gt;/index.enc&lt;/code&gt;, decrypts it with your key, and injects the HTML — showing a greeting and a list of posts you can access.&lt;/li&gt;
-&lt;li&gt;When you click a post link (&lt;code&gt;/post/?id=&amp;lt;slug&amp;gt;&lt;/code&gt;), the browser fetches &lt;code&gt;/users/&amp;lt;uid&amp;gt;/info.enc&lt;/code&gt; (the manifest), decrypts it, looks up the DEK for the slug, fetches &lt;code&gt;/posts/&amp;lt;slug&amp;gt;.enc&lt;/code&gt;, and decrypts it.&lt;/li&gt;
-&lt;li&gt;If decryption fails (wrong key, missing manifest, corrupted data), the GCM auth tag won&#39;t verify — the user is redirected to &lt;code&gt;/unauthorized/&lt;/code&gt;.&lt;/li&gt;
-&lt;/ol&gt;
-&lt;h3&gt;Why per-build DEKs?&lt;/h3&gt;
-&lt;p&gt;DEKs are regenerated on every build and never stored on disk. This avoids a DEK store that could be exfiltrated. The cost is re-encrypting all posts on every publish, which for a personal blog is negligible.&lt;/p&gt;
-&lt;h2&gt;Threat model&lt;/h2&gt;
-&lt;h3&gt;In scope&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;Random visitors and crawlers cannot read posts.&lt;/li&gt;
-&lt;li&gt;Post slugs are random (unguessable), and user IDs are random — enumeration is infeasible.&lt;/li&gt;
-&lt;li&gt;The access graph (who can read what) is hidden inside encrypted manifests.&lt;/li&gt;
-&lt;li&gt;An attacker who obtains a user&#39;s key can read that user&#39;s posts and nothing more.&lt;/li&gt;
-&lt;li&gt;The root page, index pages, and post pages are all encrypted blobs or shells — without a key, nothing is revealed.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;Out of scope&lt;/h3&gt;
-&lt;ul&gt;
-&lt;li&gt;A user who shares their key or decrypted content.&lt;/li&gt;
-&lt;li&gt;A user who saves or copies decrypted content.&lt;/li&gt;
-&lt;li&gt;Cross-device support for v1 (new device = need the onboarding URL again).&lt;/li&gt;
-&lt;li&gt;Physical or endpoint compromise of the publisher&#39;s laptop.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;Metadata&lt;/h3&gt;
-&lt;p&gt;The content and access graph are encrypted, but the site still leaks some metadata:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;Number of users&lt;/strong&gt; — visible from the directory listing under &lt;code&gt;out/users/&lt;/code&gt; (one subdirectory per user).&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Number of posts&lt;/strong&gt; — visible from &lt;code&gt;out/posts/&lt;/code&gt; (one &lt;code&gt;.enc&lt;/code&gt; file per post).&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Per-user access count&lt;/strong&gt; — manifest sizes (&lt;code&gt;info.enc&lt;/code&gt;) and index page sizes (&lt;code&gt;index.enc&lt;/code&gt;) correlate to how many posts a user can access. A user with 50 posts will have a noticeably larger manifest than one with 1 post.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Post sizes&lt;/strong&gt; — encrypted blob sizes reveal approximate plaintext length (AES-GCM adds 28 bytes of overhead: 12-byte nonce + 16-byte tag). A 5 KB post is clearly longer than a 500-byte one.&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;File modification times&lt;/strong&gt; — &lt;code&gt;git&lt;/code&gt; records when each &lt;code&gt;.enc&lt;/code&gt; file was last rebuilt.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;All &lt;code&gt;.enc&lt;/code&gt; files and the &lt;code&gt;out/&lt;/code&gt; directory are committed to the repository (see &lt;a href=&#34;#deployment&#34;&gt;Deployment&lt;/a&gt;). I do not try to hide metadata in v1.&lt;/p&gt;
-&lt;h3&gt;Deployment&lt;/h3&gt;
-&lt;p&gt;The &lt;code&gt;out/&lt;/code&gt; directory is committed to git and deployed via GitHub Pages. CI does not run &lt;code&gt;publish.py&lt;/code&gt; because the workflow cannot access &lt;code&gt;posts/&lt;/code&gt; or &lt;code&gt;security/users.csv&lt;/code&gt; (those are gitignored secrets). Instead, the build runs on the publisher&#39;s laptop and the resulting ciphertext is committed.&lt;/p&gt;
-&lt;p&gt;This is safe because everything in &lt;code&gt;out/&lt;/code&gt; is encrypted with AES-256-GCM. An attacker who obtains the ciphertext cannot decrypt it without a user&#39;s 256-bit key. Brute-forcing AES-256 is infeasible.&lt;/p&gt;
-&lt;h2&gt;Access control&lt;/h2&gt;
-&lt;p&gt;Post access is specified via frontmatter in the Markdown source:&lt;/p&gt;
-&lt;pre&gt;&lt;code class=&#34;language-markdown&#34;&gt;---
-access: [&amp;quot;14a63cfbf7677a4c&amp;quot;, &amp;quot;c12819fcd1af678d&amp;quot;]
+</code></pre>
+<h3>Per-user index page</h3>
+<p>Each user also has an encrypted index page at <code>/users/&lt;uid&gt;/index.enc</code>.</p>
+<p>This is an HTML fragment rendered at build time (Jinja2), encrypted with the user's key. It contains a greeting and a list of links to the user's accessible posts. Like the manifest, it is decrypted client-side via the Web Crypto API.</p>
+<h3>Posts</h3>
+<p>Each post lives at <code>/posts/&lt;slug&gt;.enc</code>. Slugs are random 16-character hex strings (same format as user IDs) — they are not derived from the post filename or title. This prevents guessing post URLs.</p>
+<p>Each post is encrypted with its own random DEK using AES-256-GCM (random 96-bit nonce).
+When decrypted, the blob yields the post's raw HTML.</p>
+<h3>Binary format</h3>
+<p>Both user manifests, index pages, and post blobs use the same on-disk format:</p>
+<pre><code>[12 bytes: random nonce] [variable: ciphertext + 16 bytes: GCM auth tag]
+</code></pre>
+<h3>Flow</h3>
+<ol>
+<li>You receive an onboarding URL: <code>https://example.com/login#key=&lt;base64url-key&gt;&amp;uid=&lt;16-char-hex&gt;</code></li>
+<li>The <code>/login/</code> page loads <code>auth.js</code>, which parses the fragment, stores the key and uid in localStorage (<code>static-blog-key</code> / <code>static-blog-uid</code>), then redirects to <code>/</code>.</li>
+<li>The root page (<code>/</code>) loads <code>index.js</code>, which reads key and uid from localStorage, fetches <code>/users/&lt;uid&gt;/index.enc</code>, decrypts it with your key, and injects the HTML — showing a greeting and a list of posts you can access.</li>
+<li>When you click a post link (<code>/post/?id=&lt;slug&gt;</code>), the browser fetches <code>/users/&lt;uid&gt;/info.enc</code> (the manifest), decrypts it, looks up the DEK for the slug, fetches <code>/posts/&lt;slug&gt;.enc</code>, and decrypts it.</li>
+<li>If decryption fails (wrong key, missing manifest, corrupted data), the GCM auth tag won't verify — the user is redirected to <code>/unauthorized/</code>.</li>
+</ol>
+<h3>Why per-build DEKs?</h3>
+<p>DEKs are regenerated on every build and never stored on disk. This avoids a DEK store that could be exfiltrated. The cost is re-encrypting all posts on every publish, which for a personal blog is negligible.</p>
+<h2>Threat model</h2>
+<h3>In scope</h3>
+<ul>
+<li>Random visitors and crawlers cannot read posts.</li>
+<li>Post slugs are random (unguessable), and user IDs are random — enumeration is infeasible.</li>
+<li>The access graph (who can read what) is hidden inside encrypted manifests.</li>
+<li>An attacker who obtains a user's key can read that user's posts and nothing more.</li>
+<li>The root page, index pages, and post pages are all encrypted blobs or shells — without a key, nothing is revealed.</li>
+</ul>
+<h3>Out of scope</h3>
+<ul>
+<li>A user who shares their key or decrypted content.</li>
+<li>A user who saves or copies decrypted content.</li>
+<li>Cross-device support for v1 (new device = need the onboarding URL again).</li>
+<li>Physical or endpoint compromise of the publisher's laptop.</li>
+<li>Active compromise of the app shell: the static host is not trusted with plaintext at rest, but it is trusted to serve the correct HTML and JavaScript. A compromised repo, GitHub Pages deployment, DNS record, or host could serve malicious JavaScript that reads the bearer key from localStorage and exfiltrates decrypted content.</li>
+</ul>
+<h3>Metadata</h3>
+<p>The content and access graph are encrypted, but the site still leaks some metadata:</p>
+<ul>
+<li><strong>Number of users</strong> — visible from the directory listing under <code>out/users/</code> (one subdirectory per user).</li>
+<li><strong>Number of posts</strong> — visible from <code>out/posts/</code> (one <code>.enc</code> file per post).</li>
+<li><strong>Per-user access count</strong> — manifest sizes (<code>info.enc</code>) and index page sizes (<code>index.enc</code>) correlate to how many posts a user can access. A user with 50 posts will have a noticeably larger manifest than one with 1 post.</li>
+<li><strong>Post sizes</strong> — encrypted blob sizes reveal approximate plaintext length (AES-GCM adds 28 bytes of overhead: 12-byte nonce + 16-byte tag). A 5 KB post is clearly longer than a 500-byte one.</li>
+<li><strong>File modification times</strong> — <code>git</code> records when each <code>.enc</code> file was last rebuilt.</li>
+</ul>
+<p>All <code>.enc</code> files and the <code>out/</code> directory are committed to the repository (see <a href="#deployment">Deployment</a>). I do not try to hide metadata in v1.</p>
+<h3>Deployment</h3>
+<p>The <code>out/</code> directory is committed to git and deployed via GitHub Pages. CI does not run <code>publish.py</code> because the workflow cannot access <code>posts/</code> or <code>security/users.csv</code> (those are gitignored secrets). Instead, the build runs on the publisher's laptop and the resulting ciphertext is committed. On the publisher's machine, keep <code>security/</code> and <code>posts/</code> mode <code>700</code>, and files inside them mode <code>600</code>.</p>
+<p>This is safe against a passive attacker because everything in <code>out/</code> is encrypted with AES-256-GCM. An attacker who obtains only the ciphertext cannot decrypt it without a user's 256-bit key. Brute-forcing AES-256 is infeasible.</p>
+<p>It is <strong>not</strong> safe against an active attacker who can change the deployed HTML or JavaScript. This app must be the only thing on its origin: do not host analytics, comments, third-party widgets, unrelated pages, or other apps on the same origin, because same-origin JavaScript can access the stored bearer key.</p>
+<h2>Access control</h2>
+<p>Post access is specified via frontmatter in the Markdown source:</p>
+<pre><code class="language-markdown">---
+access: [&quot;14a63cfbf7677a4c&quot;, &quot;c12819fcd1af678d&quot;]
 title: My Post
 date: 2025-06-21
 ---
 
 # Hello world
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;The &lt;code&gt;access&lt;/code&gt; list contains user IDs (16-char hex strings). Only listed users receive the post&#39;s DEK in their manifest and see it in their index.&lt;/p&gt;
-&lt;h2&gt;Pages&lt;/h2&gt;
-&lt;p&gt;| Path | Purpose |
+</code></pre>
+<p>The <code>access</code> list contains user IDs (16-char hex strings). Only listed users receive the post's DEK in their manifest and see it in their index.</p>
+<h2>Pages</h2>
+<p>| Path | Purpose |
 |------|---------|
-| &lt;code&gt;/&lt;/code&gt; | Root — authenticated users see their encrypted post index |
-| &lt;code&gt;/login#key=...&amp;amp;uid=...&lt;/code&gt; | Onboarding link landing page |
-| &lt;code&gt;/login/&lt;/code&gt; | Stripped-fragment redirect target (handled by auth.js) |
-| &lt;code&gt;/logout/&lt;/code&gt; | Clears key and uid from localStorage, redirects to &lt;code&gt;/&lt;/code&gt; |
-| &lt;code&gt;/post/?id=&amp;lt;slug&amp;gt;&lt;/code&gt; | Individual encrypted post |
-| &lt;code&gt;/unauthorized/&lt;/code&gt; | Shown when not authenticated or decryption fails |
-| &lt;code&gt;/arch.html&lt;/code&gt; | This document (public) |&lt;/p&gt;
-&lt;h2&gt;Adding a user&lt;/h2&gt;
-&lt;p&gt;Script: &lt;code&gt;./scripts/add-user.py &amp;lt;name&amp;gt;&lt;/code&gt;&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;Generates a random 256-bit key (32 bytes, base64url-encoded).&lt;/li&gt;
-&lt;li&gt;Generates a random 16-character hex user ID (64 bits of entropy).&lt;/li&gt;
-&lt;li&gt;Appends to &lt;code&gt;security/users.csv&lt;/code&gt; (name, uid, key_b64, login_url).&lt;/li&gt;
-&lt;li&gt;Prints the onboarding URL (&lt;code&gt;/login#key=...&amp;amp;uid=...&lt;/code&gt;).&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;Revoking a user&lt;/h2&gt;
-&lt;p&gt;Script: &lt;code&gt;./scripts/revoke-user.py &amp;lt;uid&amp;gt;&lt;/code&gt;&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;Removes the user from &lt;code&gt;security/users.csv&lt;/code&gt;.&lt;/li&gt;
-&lt;li&gt;Triggers a full rebuild: regenerates all DEKs, re-encrypts all posts, rebuilds every remaining user&#39;s manifest and index page.&lt;/li&gt;
-&lt;li&gt;Deploys to a clean output directory — the revoked user&#39;s manifest and index are not generated, so they disappear from the static host.&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;Revocation only affects the newly deployed site. It does not invalidate copies of old encrypted blobs that the user already downloaded. Their old &lt;code&gt;.enc&lt;/code&gt; manifest and index are no longer deployed after the next rebuild. They can&#39;t read new posts.&lt;/p&gt;
-&lt;h2&gt;Rebuilding after a post change&lt;/h2&gt;
-&lt;p&gt;Script: &lt;code&gt;./scripts/publish.py&lt;/code&gt;&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;Parses all Markdown posts, reads access frontmatter and titles.&lt;/li&gt;
-&lt;li&gt;For each post: generates a random 16-char hex slug, generates a new random DEK, encrypts the HTML.&lt;/li&gt;
-&lt;li&gt;For each authorized user: embeds the raw DEK in their manifest.&lt;/li&gt;
-&lt;li&gt;Renders a per-user index page (Jinja2) with the user&#39;s name and post links, encrypts it.&lt;/li&gt;
-&lt;li&gt;Encrypts each user&#39;s manifest with that user&#39;s key.&lt;/li&gt;
-&lt;li&gt;Converts &lt;code&gt;architecture.md&lt;/code&gt; to &lt;code&gt;/arch.html&lt;/code&gt; (public).&lt;/li&gt;
-&lt;li&gt;Writes all &lt;code&gt;.enc&lt;/code&gt; files, static assets, and pages to a clean output directory.&lt;/li&gt;
-&lt;li&gt;Output directory replaces the previous deployment (no stale files).&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h2&gt;What if you share your key?&lt;/h2&gt;
-&lt;p&gt;Shame on you!&lt;/p&gt;
-&lt;p&gt;In this situation, the scheme cannot help.
-Anyone who has a user&#39;s key can decrypt that user&#39;s manifest and index and read all posts that user can access.&lt;/p&gt;
-&lt;p&gt;I don&#39;t stop you from doing it though, so this part relies on the honor system.&lt;/p&gt;
-&lt;h2&gt;What if someone loses their key?&lt;/h2&gt;
-&lt;p&gt;Their old &lt;code&gt;.enc&lt;/code&gt; manifest and index are no longer deployed after the next rebuild. They can&#39;t read new posts. Revocation only affects the newly deployed site. It does not invalidate copies of old encrypted blobs that the user already downloaded.&lt;/p&gt;
-&lt;p&gt;For already-published content, if they cached their manifest, index, and the post blobs, they can still read them. This is inherent to a static scheme — there is no server to check freshness.&lt;/p&gt;
-&lt;h2&gt;Crypto stack&lt;/h2&gt;
-&lt;p&gt;| Parameter | Value |
+| <code>/</code> | Root — authenticated users see their encrypted post index |
+| <code>/login#key=...&amp;uid=...</code> | Onboarding link landing page |
+| <code>/login/</code> | Stripped-fragment redirect target (handled by auth.js) |
+| <code>/logout/</code> | Clears key and uid from localStorage, redirects to <code>/</code> |
+| <code>/post/?id=&lt;slug&gt;</code> | Individual encrypted post |
+| <code>/unauthorized/</code> | Shown when not authenticated or decryption fails |
+| <code>/arch.html</code> | This document (public) |</p>
+<h2>Adding a user</h2>
+<p>Script: <code>uv run python scripts/add-user.py &lt;name&gt;</code></p>
+<ul>
+<li>Generates a random 256-bit key (32 bytes, base64url-encoded).</li>
+<li>Generates a random 16-character hex user ID (64 bits of entropy).</li>
+<li>Appends to <code>security/users.csv</code> (name, uid, key_b64, login_url).</li>
+<li>Prints the onboarding URL (<code>/login#key=...&amp;uid=...</code>).</li>
+</ul>
+<h2>Revoking a user</h2>
+<p>Script: <code>uv run python scripts/revoke-user.py &lt;uid&gt;</code></p>
+<ul>
+<li>Removes the user from <code>security/users.csv</code>.</li>
+<li>Triggers a full rebuild: regenerates all DEKs, re-encrypts all posts, rebuilds every remaining user's manifest and index page.</li>
+<li>Deploys to a clean output directory — the revoked user's manifest and index are not generated, so they disappear from the static host.</li>
+</ul>
+<p>Revocation only affects the newly deployed site. It does not invalidate copies of old encrypted blobs that the user already downloaded. Their old <code>.enc</code> manifest and index are no longer deployed after the next rebuild. They can't read new posts.</p>
+<h2>Rebuilding after a post change</h2>
+<p>Script: <code>uv run python scripts/publish.py</code></p>
+<ul>
+<li>Parses all Markdown posts, reads access frontmatter and titles.</li>
+<li>For each post: generates a random 16-char hex slug, generates a new random DEK, encrypts the HTML.</li>
+<li>For each authorized user: embeds the raw DEK in their manifest.</li>
+<li>Renders a per-user index page (Jinja2) with the user's name and post links, encrypts it.</li>
+<li>Encrypts each user's manifest with that user's key.</li>
+<li>Converts <code>architecture.md</code> to <code>/arch.html</code> (public).</li>
+<li>Writes all <code>.enc</code> files, static assets, and pages to a clean output directory.</li>
+<li>Output directory replaces the previous deployment (no stale files).</li>
+</ul>
+<h2>What if you share your key?</h2>
+<p>Shame on you!</p>
+<p>In this situation, the scheme cannot help.
+Anyone who has a user's key can decrypt that user's manifest and index and read all posts that user can access.</p>
+<p>I don't stop you from doing it though, so this part relies on the honor system.</p>
+<h2>What if someone loses their key?</h2>
+<p>Their old <code>.enc</code> manifest and index are no longer deployed after the next rebuild. They can't read new posts. Revocation only affects the newly deployed site. It does not invalidate copies of old encrypted blobs that the user already downloaded.</p>
+<p>For already-published content, if they cached their manifest, index, and the post blobs, they can still read them. This is inherent to a static scheme — there is no server to check freshness.</p>
+<h2>Crypto stack</h2>
+<p>| Parameter | Value |
 |-----------|-------|
 | Cipher | AES-256-GCM |
 | Key size | 256 bits (32 bytes) |
 | Nonce / IV | 96 bits (12 bytes), random per encryption |
 | Auth tag | 128 bits (16 bytes), appended to ciphertext |
 | Key encoding | Unpadded base64url (RFC 4648 §5) |
-| Client API | Web Crypto API (&lt;code&gt;crypto.subtle&lt;/code&gt;) |
-| Python lib | &lt;code&gt;cryptography.hazmat.primitives.ciphers.aead.AESGCM&lt;/code&gt; |&lt;/p&gt;
-&lt;p&gt;No KDF. No key wrapping. Raw 256-bit keys used directly — the key is already a random 256-bit string; adding PBKDF2 would only burn CPU for no security gain.&lt;/p&gt;
-&lt;h2&gt;CSP&lt;/h2&gt;
-&lt;p&gt;All pages ship a strict Content Security Policy via &lt;code&gt;&amp;lt;meta&amp;gt;&lt;/code&gt; tag:&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;default-src &#39;none&#39;; script-src &#39;self&#39;; style-src &#39;self&#39;; connect-src &#39;self&#39;; img-src &#39;self&#39; data:; base-uri &#39;none&#39;; object-src &#39;none&#39;; form-action &#39;none&#39;; frame-ancestors &#39;none&#39;
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;No inline scripts, no external resources, no CDNs. All JS is external (&lt;code&gt;&amp;lt;script src=&amp;quot;...&amp;quot;&amp;gt;&lt;/code&gt;). Styles are external stylesheets. Fetch requests are same-origin only.&lt;/p&gt;
+| Client API | Web Crypto API (<code>crypto.subtle</code>) |
+| Python lib | <code>cryptography.hazmat.primitives.ciphers.aead.AESGCM</code> |</p>
+<p>No KDF. No key wrapping. Raw 256-bit keys used directly — the key is already a random 256-bit string; adding PBKDF2 would only burn CPU for no security gain.</p>
+<h2>CSP</h2>
+<p>All pages ship a strict Content Security Policy via <code>&lt;meta&gt;</code> tag:</p>
+<pre><code>default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src data:; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none'
+</code></pre>
+<p>No inline scripts, no inline styles, no external resources, no CDNs. All JS is external (<code>&lt;script src=&quot;...&quot;&gt;</code>). Styles are external stylesheets. Fetch requests are same-origin only. Every page also sets <code>&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;</code> so private post slugs are not sent as referrers when a user clicks an external link.</p>
 
+</main>
 </body>
 </html>

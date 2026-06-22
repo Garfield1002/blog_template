@@ -82,7 +82,7 @@ Both user manifests, index pages, and post blobs use the same on-disk format:
 ### Flow
 
 1. You receive an onboarding URL: `https://example.com/login#key=<base64url-key>&uid=<16-char-hex>`
-2. The `/login/` page loads `auth.js`, which parses the fragment, stores the key and uid in localStorage, then redirects to `/`.
+2. The `/login/` page loads `auth.js`, which parses the fragment, stores the key and uid in localStorage (`static-blog-key` / `static-blog-uid`), then redirects to `/`.
 3. The root page (`/`) loads `index.js`, which reads key and uid from localStorage, fetches `/users/<uid>/index.enc`, decrypts it with your key, and injects the HTML — showing a greeting and a list of posts you can access.
 4. When you click a post link (`/post/?id=<slug>`), the browser fetches `/users/<uid>/info.enc` (the manifest), decrypts it, looks up the DEK for the slug, fetches `/posts/<slug>.enc`, and decrypts it.
 5. If decryption fails (wrong key, missing manifest, corrupted data), the GCM auth tag won't verify — the user is redirected to `/unauthorized/`.
@@ -107,6 +107,7 @@ DEKs are regenerated on every build and never stored on disk. This avoids a DEK 
 - A user who saves or copies decrypted content.
 - Cross-device support for v1 (new device = need the onboarding URL again).
 - Physical or endpoint compromise of the publisher's laptop.
+- Active compromise of the app shell: the static host is not trusted with plaintext at rest, but it is trusted to serve the correct HTML and JavaScript. A compromised repo, GitHub Pages deployment, DNS record, or host could serve malicious JavaScript that reads the bearer key from localStorage and exfiltrates decrypted content.
 
 ### Metadata
 
@@ -122,9 +123,11 @@ All `.enc` files and the `out/` directory are committed to the repository (see [
 
 ### Deployment
 
-The `out/` directory is committed to git and deployed via GitHub Pages. CI does not run `publish.py` because the workflow cannot access `posts/` or `security/users.csv` (those are gitignored secrets). Instead, the build runs on the publisher's laptop and the resulting ciphertext is committed.
+The `out/` directory is committed to git and deployed via GitHub Pages. CI does not run `publish.py` because the workflow cannot access `posts/` or `security/users.csv` (those are gitignored secrets). Instead, the build runs on the publisher's laptop and the resulting ciphertext is committed. On the publisher's machine, keep `security/` and `posts/` mode `700`, and files inside them mode `600`.
 
-This is safe because everything in `out/` is encrypted with AES-256-GCM. An attacker who obtains the ciphertext cannot decrypt it without a user's 256-bit key. Brute-forcing AES-256 is infeasible.
+This is safe against a passive attacker because everything in `out/` is encrypted with AES-256-GCM. An attacker who obtains only the ciphertext cannot decrypt it without a user's 256-bit key. Brute-forcing AES-256 is infeasible.
+
+It is **not** safe against an active attacker who can change the deployed HTML or JavaScript. This app must be the only thing on its origin: do not host analytics, comments, third-party widgets, unrelated pages, or other apps on the same origin, because same-origin JavaScript can access the stored bearer key.
 
 ## Access control
 
@@ -156,7 +159,7 @@ The `access` list contains user IDs (16-char hex strings). Only listed users rec
 
 ## Adding a user
 
-Script: `./scripts/add-user.py <name>`
+Script: `uv run python scripts/add-user.py <name>`
 
 - Generates a random 256-bit key (32 bytes, base64url-encoded).
 - Generates a random 16-character hex user ID (64 bits of entropy).
@@ -165,7 +168,7 @@ Script: `./scripts/add-user.py <name>`
 
 ## Revoking a user
 
-Script: `./scripts/revoke-user.py <uid>`
+Script: `uv run python scripts/revoke-user.py <uid>`
 
 - Removes the user from `security/users.csv`.
 - Triggers a full rebuild: regenerates all DEKs, re-encrypts all posts, rebuilds every remaining user's manifest and index page.
@@ -175,7 +178,7 @@ Revocation only affects the newly deployed site. It does not invalidate copies o
 
 ## Rebuilding after a post change
 
-Script: `./scripts/publish.py`
+Script: `uv run python scripts/publish.py`
 
 - Parses all Markdown posts, reads access frontmatter and titles.
 - For each post: generates a random 16-char hex slug, generates a new random DEK, encrypts the HTML.
@@ -220,7 +223,7 @@ No KDF. No key wrapping. Raw 256-bit keys used directly — the key is already a
 All pages ship a strict Content Security Policy via `<meta>` tag:
 
 ```
-default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none'
+default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src data:; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none'
 ```
 
-No inline scripts, no external resources, no CDNs. All JS is external (`<script src="...">`). Styles are external stylesheets. Fetch requests are same-origin only.
+No inline scripts, no inline styles, no external resources, no CDNs. All JS is external (`<script src="...">`). Styles are external stylesheets. Fetch requests are same-origin only. Every page also sets `<meta name="referrer" content="no-referrer">` so private post slugs are not sent as referrers when a user clicks an external link.

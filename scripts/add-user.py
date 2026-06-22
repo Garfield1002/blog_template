@@ -19,7 +19,7 @@ def main(name: str) -> None:
     print(f"One-time link:\n{user.login_url}")
     print()
     print("Send this link to the user. They must open it exactly once.")
-    print("After opening, the credentials are stored in cookies.")
+    print("After opening, the credentials are stored in localStorage.")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ All scripts in this directory can import from here by adding::
 
 import base64
 import csv
+import os
+import re
 import secrets
 import sys
 from pathlib import Path
@@ -26,6 +28,9 @@ SRC_DIR = BASE_DIR / "src"
 POSTS_DIR = BASE_DIR / "posts"
 USERS_CSV = BASE_DIR / "security" / "users.csv"
 OUT_DIR = BASE_DIR / "out"
+
+UID_RE = re.compile(r"^[a-f0-9]{16}$")
+KEY_B64_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
 # ---------------------------------------------------------------------------
 # Content-Security-Policy — single source of truth
@@ -158,6 +163,30 @@ def resolve_access(access: list[str], users: list[User] | None = None) -> list[s
 
 
 # ===================================================================
+#  Validation helpers
+# ===================================================================
+
+
+def is_valid_uid(uid: str) -> bool:
+    """Return ``True`` when *uid* is a 16-character lowercase hex ID."""
+    return bool(UID_RE.fullmatch(uid))
+
+
+def validate_uid(uid: str, context: str = "uid") -> None:
+    """Raise ``ValueError`` unless *uid* is safe for user IDs and paths."""
+    if not is_valid_uid(uid):
+        raise ValueError(f"{context} must be 16 lowercase hex characters: {uid!r}")
+
+
+def validate_key_b64(key_b64: str, context: str = "key_b64") -> None:
+    """Raise ``ValueError`` unless *key_b64* is an unpadded 256-bit key."""
+    if not KEY_B64_RE.fullmatch(key_b64):
+        raise ValueError(
+            f"{context} must be a 43-character unpadded base64url string"
+        )
+
+
+# ===================================================================
 #  User CSV management
 # ===================================================================
 
@@ -170,53 +199,91 @@ def read_users() -> list[User]:
         return []
 
     users: list[User] = []
+    seen_uids: set[str] = set()
+    seen_names: set[str] = set()
+
     with open(USERS_CSV, newline="") as f:
         reader = csv.reader(f)
-        for row in reader:
+        for row_num, row in enumerate(reader, start=1):
             if not row or row[0].startswith("#"):
                 continue
             try:
-                name = row[0]
-                uid = row[1]
-                key_b64 = row[2]
-                login_url = row[3] if len(row) > 3 else ""
-                key_bytes = base64url_decode(key_b64)
-                if len(key_bytes) != 32:
+                name = row[0].strip()
+                uid = row[1].strip()
+                key_b64 = row[2].strip()
+                login_url = row[3].strip() if len(row) > 3 else ""
+
+                if not name:
+                    raise ValueError("name is empty")
+                validate_uid(uid, "uid")
+                validate_key_b64(key_b64)
+
+                if uid in seen_uids:
+                    raise ValueError(f"duplicate uid {uid}")
+                seen_uids.add(uid)
+
+                name_lower = name.lower()
+                if name_lower in seen_names:
                     print(
-                        f"Error: user {uid} key is {len(key_bytes)} bytes, "
-                        f"expected 32.",
+                        f"Warning: duplicate user name {name!r} in users.csv; "
+                        "access lists by name will use the first match.",
                         file=sys.stderr,
                     )
-                    sys.exit(1)
+                seen_names.add(name_lower)
+
+                key_bytes = base64url_decode(key_b64)
+                if len(key_bytes) != 32:
+                    raise ValueError(
+                        f"key is {len(key_bytes)} bytes, expected 32"
+                    )
                 users.append(User(name, uid, key_bytes, login_url))
             except (IndexError, ValueError) as e:
                 print(
-                    f"Warning: malformed row in users.csv: {row} ({e})",
+                    f"Error: malformed row {row_num} in users.csv: {row} ({e})",
                     file=sys.stderr,
                 )
-                continue
+                sys.exit(1)
     return users
 
 
 def write_users(users: list[User]) -> None:
-    """Write the full user list back to *security/users.csv*."""
+    """Write the full user list back to *security/users.csv*.
+
+    The file contains bearer secrets, so create it with ``0600`` permissions
+    and keep the containing directory private to the local user.
+    """
     USERS_CSV.parent.mkdir(parents=True, exist_ok=True)
-    with open(USERS_CSV, "w", newline="") as f:
+    USERS_CSV.parent.chmod(0o700)
+
+    fd = os.open(USERS_CSV, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["# name", "uid", "key_b64", "login_url"])
         for u in users:
+            validate_uid(u.id, "uid")
             writer.writerow([u.name, u.id, u.key_b64, u.login_url])
+    USERS_CSV.chmod(0o600)
 
 
 def add_user(name: str) -> User:
     """Generate a new user, append to CSV, and return the ``User``."""
-    uid = secrets.token_hex(8)          # 16-char hex, 64 bits entropy
+    users = read_users()
+    existing_uids = {u.id for u in users}
+
+    # Collisions are extremely unlikely, but duplicate IDs would overwrite the
+    # same out/users/<uid>/ directory, so check anyway.
+    while True:
+        uid = secrets.token_hex(8)          # 16-char hex, 64 bits entropy
+        if uid not in existing_uids:
+            break
+
     key_bytes = secrets.token_bytes(32)  # 256-bit AES key
     login_url = f"https://example.com/login#key={base64url_encode(key_bytes)}&uid={uid}"
 
-    user = User(name, uid, key_bytes, login_url)
+    user = User(name.strip(), uid, key_bytes, login_url)
+    if not user.name:
+        raise ValueError("user name must not be empty")
 
-    users = read_users()
     users.append(user)
     write_users(users)
 

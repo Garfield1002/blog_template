@@ -21,9 +21,12 @@
 
   // Validate key: unpadded base64url 32 bytes → always 43 characters.
   if (key.length !== 43 || !/^[A-Za-z0-9_-]+$/.test(key)) return;
+  if (!/^[a-f0-9]{16}$/.test(uid)) return;
 
-  localStorage.setItem("__Host-key", key);
-  localStorage.setItem("__Host-uid", uid);
+  localStorage.setItem("static-blog-key", key);
+  localStorage.setItem("static-blog-uid", uid);
+  localStorage.removeItem("__Host-key");
+  localStorage.removeItem("__Host-uid");
 
   // Strip the fragment and redirect to index.
   var base = document.body.getAttribute("data-base") || ".";

@@ -12,8 +12,8 @@ async function loadPost() {
   var slug = new URLSearchParams(window.location.search).get("id");
   if (!slug) return;
 
-  var keyB64 = localStorage.getItem("__Host-key");
-  var uid = localStorage.getItem("__Host-uid");
+  var keyB64 = localStorage.getItem("static-blog-key");
+  var uid = localStorage.getItem("static-blog-uid");
 
   if (!keyB64 || !uid || !/^[a-f0-9]{16}$/.test(uid)) {
     throw new Error("Missing credentials — visit your one-time link first.");

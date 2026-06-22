@@ -9,11 +9,11 @@ Crawlers and random visitors see nothing but encrypted blobs.
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+uv sync
 
 # Add users
-python scripts/add-user.py Alice
-python scripts/add-user.py Bob
+uv run python scripts/add-user.py Alice
+uv run python scripts/add-user.py Bob
 
 # Create a post (posts/hello-world.md)
 # ---
@@ -24,7 +24,7 @@ python scripts/add-user.py Bob
 # ...
 
 # Build
-python scripts/publish.py
+uv run python scripts/publish.py
 
 # Serve
 python -m http.server -d out/ 8080
@@ -37,7 +37,7 @@ Each `add-user.py` run prints an onboarding URL. Send it to the user. They open 
 - **Posts** are Markdown files in `posts/` with YAML frontmatter (`access:` list of user IDs, `title`).
 - **Users** are rows in `security/users.csv` (gitignored): name, uid, key, login URL.
 - **Build** (`publish.py`) encrypts each post with a random DEK, builds per-user manifests (mapping slugs to DEKs), encrypts manifests with user keys, and renders per-user index pages (Jinja2) which are also encrypted.
-- **Client** (`index.html` + `index.js`) reads key and uid from localStorage, fetches the user's encrypted index, decrypts it, and shows a post list. Clicking a post fetches the encrypted post body, decrypts it with the DEK from the manifest, and injects the HTML.
+- **Client** (`index.html` + `index.js`) reads key and uid from localStorage (`static-blog-key` / `static-blog-uid`), fetches the user's encrypted index, decrypts it, and shows a post list. Clicking a post fetches the encrypted post body, decrypts it with the DEK from the manifest, and injects the HTML.
 - **Crypto** is AES-256-GCM everywhere. Wrong key → GCM tag fails → redirect to unauthorized page.
 
 ## URLs
@@ -55,14 +55,22 @@ Each `add-user.py` run prints an onboarding URL. Send it to the user. They open 
 
 See [architecture.md](architecture.md) for the full design, threat model, and crypto rationale. Rendered at `/arch.html` in the built site.
 
+## Security notes
+
+The static host is not trusted with plaintext at rest, but it **is** trusted to serve the correct HTML and JavaScript. A compromised repo, deployment, DNS record, or static host could serve malicious JavaScript that steals the browser-stored bearer key. Keep this origin dedicated to this app only: do not add analytics, comments, third-party scripts, unrelated pages, or other apps to the same origin.
+
+Keep local secrets private too: `security/` and `posts/` should be mode `700`, and files inside them should be mode `600`. The user-management scripts create `security/users.csv` with `0600` permissions.
+
 ## Revoking access
 
 ```bash
-python scripts/revoke-user.py <uid>
-python scripts/publish.py     # rebuild — revoked user's files are gone
+uv run python scripts/revoke-user.py <uid>
+uv run python scripts/publish.py     # rebuild — revoked user's files are gone
 ```
 
 ## Dependencies
+
+Use `uv sync` to install the pinned Python dependency set from `uv.lock`.
 
 - Python: `cryptography`, `mistune`, `Jinja2`, `PyYAML`
 - Browser: Web Crypto API (AES-GCM), ES6
@@ -73,7 +81,7 @@ python scripts/publish.py     # rebuild — revoked user's files are gone
 > **Demo keys only.** The credentials below are published intentionally so visitors can explore the blog.
 > In a real deployment, these onboarding URLs would be sent privately to each user.
 
-[Alice](https://garfield1002.github.io/blog_template/login#key=tjBwKZwLI-TMhTlB_NxNox7PFs9KIS1YPoiULZuZ2KM&uid=14a63cfbf7677a4c) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=9cb01b8a88982f29), [Private Note](https://garfield1002.github.io/blog_template/post/?id=f2b3fa56d581fe41)
-[Bob](https://garfield1002.github.io/blog_template/login#key=RN71uk2qUwqfX7Yi82MD7xU4ngrVPTDK022nNgJD_VY&uid=c12819fcd1af678d) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=9cb01b8a88982f29)
+[Alice](https://garfield1002.github.io/blog_template/login#key=tjBwKZwLI-TMhTlB_NxNox7PFs9KIS1YPoiULZuZ2KM&uid=14a63cfbf7677a4c) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=a3805b4d1331db17), [Private Note](https://garfield1002.github.io/blog_template/post/?id=b6d414d3f07f69e0)
+[Bob](https://garfield1002.github.io/blog_template/login#key=RN71uk2qUwqfX7Yi82MD7xU4ngrVPTDK022nNgJD_VY&uid=c12819fcd1af678d) can access: [Hello, World](https://garfield1002.github.io/blog_template/post/?id=a3805b4d1331db17)
 
 [logout](https://garfield1002.github.io/blog_template/logout/)
